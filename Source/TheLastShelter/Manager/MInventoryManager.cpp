@@ -6,6 +6,8 @@
 
 void UMInventoryManager::Initialize(FSubsystemCollectionBase& Collection)
 {
+	// MDataManager가 먼저 초기화되도록 의존성 선언
+	Collection.InitializeDependency<UMDataManager>();
 	Super::Initialize(Collection);
 
 	// 플레이어 인벤토리는 항상 생성
