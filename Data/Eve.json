@@ -1,0 +1,38 @@
+[
+  {
+    "ID": "EVE_001",
+    "Name": "미즈키",
+    "Affection": 0,
+    "SpritePath": "/Game/Assets/Sprites/Eve/Mizuki",
+    "PhysicalStat": {
+      "Attack": 10,
+      "Defense": 5,
+      "Health": 100,
+      "Stamina": 80,
+      "MoveSpeed": 250,
+      "WorkSpeed": 1.0,
+      "AttackSpeed": 1.0,
+      "Recovery": 1.5,
+      "Accuracy": 60,
+      "Evasion": 15,
+      "CritChance": 5,
+      "CritDamage": 1.5
+    },
+    "MentalStat": {
+      "Combat": 10,
+      "Construction": 5,
+      "Mining": 3,
+      "Cooking": 8,
+      "Gardening": 6,
+      "Crafting": 4,
+      "Medicine": 7,
+      "Social": 12,
+      "Research": 5,
+      "Lewdness": 0,
+      "Composure": 10,
+      "Generosity": 15
+    },
+    "HiddenStats": [],
+    "SkillIDs": ["SKILL_001"]
+  }
+]
