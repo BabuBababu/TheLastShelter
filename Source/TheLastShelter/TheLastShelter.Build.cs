@@ -11,6 +11,7 @@ public class TheLastShelter : ModuleRules
 		PublicIncludePaths.AddRange(new string[] {
 			ModuleDirectory,
 			System.IO.Path.Combine(ModuleDirectory, "Actor"),
+			System.IO.Path.Combine(ModuleDirectory, "ActorComponent"),
 			System.IO.Path.Combine(ModuleDirectory, "AI"),
 			System.IO.Path.Combine(ModuleDirectory, "Manager"),
 			System.IO.Path.Combine(ModuleDirectory, "UI")

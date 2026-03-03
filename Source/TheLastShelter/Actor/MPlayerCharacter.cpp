@@ -1,6 +1,7 @@
 // Copyright TheLastShelter. All Rights Reserved.
 
 #include "MPlayerCharacter.h"
+#include "MStatComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
@@ -29,6 +30,9 @@ AMPlayerCharacter::AMPlayerCharacter()
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->MaxWalkSpeed = 300.f;
 	bUseControllerRotationYaw = false;
+
+	// ---- 스탯 컴포넌트 ----
+	StatComp = CreateDefaultSubobject<UMStatComponent>(TEXT("StatComp"));
 }
 
 void AMPlayerCharacter::BeginPlay()

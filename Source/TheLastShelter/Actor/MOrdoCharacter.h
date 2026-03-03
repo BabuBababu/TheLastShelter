@@ -8,6 +8,7 @@
 #include "MOrdoCharacter.generated.h"
 
 class UMDataManager;
+class UMStatComponent;
 class UPaperFlipbook;
 class UNiagaraComponent;
 class UNiagaraSystem;
@@ -37,6 +38,10 @@ public:
 	// ============================================================
 	// 컴포넌트
 	// ============================================================
+
+	/** 스탯 컴포넌트 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ordo|Stat")
+	TObjectPtr<UMStatComponent> StatComp;
 
 	/** 공격 이펙트 (나이아가라) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ordo|VFX")
@@ -109,9 +114,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
 	EMOrdoType OrdoType = EMOrdoType::Axiom;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Stat")
-	FMPhysicalStat PhysicalStat;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
 	TArray<FString> SkillIDs;
 
@@ -119,9 +121,6 @@ public:
 	FString DropTableID;
 
 	// ---- 전투 ----
-	UPROPERTY(BlueprintReadOnly, Category = "Ordo|Combat")
-	float CurrentHealth = 100.f;
-
 	UPROPERTY(BlueprintReadOnly, Category = "Ordo|Combat")
 	bool IsAttacking = false;
 
@@ -133,7 +132,7 @@ public:
 	void TakeDamageFromPlayer(float Damage);
 
 	UFUNCTION(BlueprintCallable, Category = "Ordo|Combat")
-	bool IsDead() const { return CurrentHealth <= 0.f; }
+	bool IsDead() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Ordo|Drop")
 	void SpawnDropItems();

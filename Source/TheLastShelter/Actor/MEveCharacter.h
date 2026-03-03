@@ -8,6 +8,7 @@
 #include "MEveCharacter.generated.h"
 
 class UMDataManager;
+class UMStatComponent;
 class UPaperFlipbook;
 class UNiagaraComponent;
 class UNiagaraSystem;
@@ -38,6 +39,10 @@ public:
 	// ============================================================
 	// 컴포넌트
 	// ============================================================
+
+	/** 스탯 컴포넌트 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Eve|Stat")
+	TObjectPtr<UMStatComponent> StatComp;
 
 	/** 공격 이펙트 (나이아가라) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Eve|VFX")
@@ -116,9 +121,6 @@ public:
 	FString EveName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Stat")
-	FMPhysicalStat PhysicalStat;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Stat")
 	FMMentalStat MentalStat;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Stat")
@@ -145,9 +147,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Eve|Combat")
 	bool IsAttacking = false;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Eve|Combat")
-	float CurrentHealth = 100.f;
-
 	/** AI가 호출하는 공격 함수 */
 	UFUNCTION(BlueprintCallable, Category = "Eve|Combat")
 	void PerformAttack(AActor* Target);
@@ -156,5 +155,5 @@ public:
 	void TakeDamageFromOrdo(float Damage);
 
 	UFUNCTION(BlueprintCallable, Category = "Eve|Combat")
-	bool IsDead() const { return CurrentHealth <= 0.f; }
+	bool IsDead() const;
 };

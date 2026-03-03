@@ -1,6 +1,7 @@
 // Copyright TheLastShelter. All Rights Reserved.
 
 #include "MEveCharacter.h"
+#include "MStatComponent.h"
 #include "MDataManager.h"
 #include "MInventoryManager.h"
 #include "MOrdoCharacter.h"
@@ -26,6 +27,9 @@ AMEveCharacter::AMEveCharacter()
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 
 	GetCharacterMovement()->MaxWalkSpeed = 250.f;
+
+	// ---- 스탯 컴포넌트 ----
+	StatComp = CreateDefaultSubobject<UMStatComponent>(TEXT("StatComp"));
 
 	// ---- 공격 VFX 컴포넌트 ----
 	AttackVFXComp = CreateDefaultSubobject<UNiagaraComponent>(TEXT("AttackVFX"));
@@ -82,15 +86,18 @@ void AMEveCharacter::InitializeFromData(const FString& EveID)
 	{
 		EveDataID = Data.ID;
 		EveName = Data.Name;
-		PhysicalStat = Data.PhysicalStat;
 		MentalStat = Data.MentalStat;
 		Affection = Data.Affection;
 		HiddenStats = Data.HiddenStats;
 		SkillIDs = Data.SkillIDs;
-		CurrentHealth = PhysicalStat.Health;
+
+		if (StatComp)
+		{
+			StatComp->InitializeFromPhysicalStat(Data.PhysicalStat);
+		}
 
 		// MoveSpeed 적용
-		GetCharacterMovement()->MaxWalkSpeed = PhysicalStat.MoveSpeed;
+		GetCharacterMovement()->MaxWalkSpeed = Data.PhysicalStat.MoveSpeed;
 
 		// 인벤토리 매니저에 이 Eve의 인벤토리 생성
 		UMInventoryManager* InvMgr = GI->GetSubsystem<UMInventoryManager>();
@@ -144,27 +151,32 @@ void AMEveCharacter::AssignRandomHiddenStats()
 
 void AMEveCharacter::TakeDamageFromOrdo(float Damage)
 {
-	const float ActualDamage = FMath::Max(0.f, Damage - PhysicalStat.Defense);
-	CurrentHealth -= ActualDamage;
-	CurrentHealth = FMath::Max(0.f, CurrentHealth);
+	if (!StatComp) return;
 
+	float actualDamage = StatComp->ApplyDamage(Damage);
 	PlayHitVFX();
 
-	UE_LOG(LogTemp, Log, TEXT("[Eve] %s took %.1f damage (%.1f HP left)"), *EveName, ActualDamage, CurrentHealth);
+	UE_LOG(LogTemp, Log, TEXT("[Eve] %s took %.1f damage (%.1f HP left)"),
+		*EveName, actualDamage, StatComp->GetCurrentHealth());
 
-	if (IsDead())
+	if (StatComp->IsDead())
 	{
 		SetAnimState(EMEveAnimState::Down);
 		IsPlayingActionAnim = true;
-		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 99999.f; // 사망 상태 유지
+		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 99999.f;
 		UE_LOG(LogTemp, Log, TEXT("[Eve] %s is dead!"), *EveName);
 	}
 	else
 	{
 		SetAnimState(EMEveAnimState::Hit);
 		IsPlayingActionAnim = true;
-		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 0.3f; // 피격 경직
+		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 0.3f;
 	}
+}
+
+bool AMEveCharacter::IsDead() const
+{
+	return StatComp ? StatComp->IsDead() : true;
 }
 
 // ============================================================
@@ -191,7 +203,8 @@ void AMEveCharacter::PerformAttack(AActor* Target)
 	// 데미지 적용
 	if (AMOrdoCharacter* Ordo = Cast<AMOrdoCharacter>(Target))
 	{
-		Ordo->TakeDamageFromPlayer(PhysicalStat.Attack);
+		float attackPower = StatComp ? StatComp->GetAttackPower() : 0.f;
+		Ordo->TakeDamageFromPlayer(attackPower);
 	}
 }
 

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/DataTable.h"
 #include "MDataTypes.generated.h"
 
 // ============================================================
@@ -651,4 +652,188 @@ struct FMInventorySlot
 	int32 Count = 0;
 
 	bool IsEmpty() const { return ItemID.IsEmpty() || Count <= 0; }
+};
+
+// ============================================================
+// Shelter Inventory
+// ============================================================
+
+/** 쉘터 저장소 카테고리 */
+UENUM(BlueprintType)
+enum class EMShelterStorageCategory : uint8
+{
+	General		UMETA(DisplayName = "일반"),
+	Resource	UMETA(DisplayName = "자원"),
+	Building	UMETA(DisplayName = "건축"),
+	Crafting	UMETA(DisplayName = "제작"),
+	Equipment	UMETA(DisplayName = "장비"),
+	Consumable	UMETA(DisplayName = "소비")
+};
+
+// ============================================================
+// Ordo Spawn DataTable Row
+// ============================================================
+
+class AMOrdoCharacter;
+
+/**
+ * UE DataTable 행 구조체.
+ * MSpawnManager가 웨이브별 오르도 스폰 구성을 읽을 때 사용.
+ * Row Name = 고유 스폰 ID (예: "Axiom_Grunt_01")
+ */
+USTRUCT(BlueprintType)
+struct FMOrdoSpawnRow : public FTableRowBase
+{
+	GENERATED_BODY()
+
+	/** MDataManager의 OrdoData ID (JSON 기반 스탯 초기화용) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	FString OrdoDataID;
+
+	/** 스폰할 Ordo 블루프린트 클래스 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	TSoftClassPtr<AMOrdoCharacter> OrdoClass;
+
+	/** 기지 가치 대비 이 유닛의 위협도 가중치 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	float ThreatWeight = 1.f;
+
+	/** 이 행이 활성화되는 최소 기지 가치 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	float MinBaseValue = 0.f;
+
+	/** 이 행이 활성화되는 최대 기지 가치 (0 = 무제한) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	float MaxBaseValue = 0.f;
+
+	/** 스폰 확률 가중치 (높을수록 자주 선택됨) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	float SpawnWeight = 1.f;
+};
+
+// ============================================================
+// Wave Definition
+// ============================================================
+
+/**
+ * 웨이브 정의 구조체.
+ * MSpawnManager가 하루 침공 시 참조하는 웨이브 구성.
+ */
+USTRUCT(BlueprintType)
+struct FMWaveDefinition
+{
+	GENERATED_BODY()
+
+	/** 이 웨이브가 활성화되는 최소 기지 가치 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
+	float MinBaseValue = 0.f;
+
+	/** 웨이브당 최소 스폰 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
+	int32 MinSpawnCount = 1;
+
+	/** 웨이브당 최대 스폰 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
+	int32 MaxSpawnCount = 3;
+
+	/** 기지 가치 100당 추가 스폰 수 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
+	float ExtraSpawnPerBaseValue = 0.01f;
+
+	/** 웨이브 간 딜레이 (초) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
+	float WaveInterval = 5.f;
+};
+
+// ============================================================
+// 시간대
+// ============================================================
+
+/** 시간대 구분 */
+UENUM(BlueprintType)
+enum class EMTimeOfDay : uint8
+{
+	Dawn		UMETA(DisplayName = "새벽"),    // 0.00 ~ 0.25
+	Day			UMETA(DisplayName = "낮"),      // 0.25 ~ 0.50
+	Dusk		UMETA(DisplayName = "저녁"),    // 0.50 ~ 0.75
+	Night		UMETA(DisplayName = "밤")       // 0.75 ~ 1.00
+};
+
+// ============================================================
+// Hardship (재난) 시스템
+// ============================================================
+
+/** 재난/역경 타입 */
+UENUM(BlueprintType)
+enum class EMHardshipType : uint8
+{
+	None				UMETA(DisplayName = "없음"),
+	OrdoInvasion		UMETA(DisplayName = "오르도 침공"),
+	Plague				UMETA(DisplayName = "전염병"),
+	Monsoon				UMETA(DisplayName = "장마"),
+	Typhoon				UMETA(DisplayName = "태풍"),
+	Blizzard			UMETA(DisplayName = "폭설"),
+	ColdWave			UMETA(DisplayName = "한파"),
+	Heatwave			UMETA(DisplayName = "폭염"),
+	Drought				UMETA(DisplayName = "가뭄")
+};
+
+/** 재난 심각도 */
+UENUM(BlueprintType)
+enum class EMHardshipSeverity : uint8
+{
+	Minor		UMETA(DisplayName = "경미"),
+	Moderate	UMETA(DisplayName = "보통"),
+	Severe		UMETA(DisplayName = "심각"),
+	Catastrophic UMETA(DisplayName = "재앙")
+};
+
+/**
+ * 재난 이벤트 정의.
+ * MHardshipManager가 재난 발생/진행/종료를 관리할 때 사용.
+ */
+USTRUCT(BlueprintType)
+struct FMHardshipEventData
+{
+	GENERATED_BODY()
+
+	/** 재난 타입 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	EMHardshipType HardshipType = EMHardshipType::None;
+
+	/** 심각도 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	EMHardshipSeverity Severity = EMHardshipSeverity::Minor;
+
+	/** 지속 시간 (인게임 일 수, 0이면 즉시 종료 = 침공 등) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	int32 DurationDays = 0;
+
+	/** 남은 지속 일수 (런타임) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	int32 RemainingDays = 0;
+
+	/** 이 재난이 활성화되는 최소 기지 가치 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	float MinBaseValue = 0.f;
+
+	/** 기본 발생 확률 (0~1) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	float BaseProbability = 0.1f;
+
+	/** 기지 가치 100당 확률 보정 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	float ProbabilityPerBaseValue = 0.001f;
+
+	/** 이 재난이 발생 가능한 시간대 (비어있으면 아무 시간대) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	TArray<EMTimeOfDay> AllowedTimeOfDay;
+
+	/** 이 재난이 발생 가능한 최소 경과 일수 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	int32 MinDay = 1;
+
+	/** 침공의 경우 사용할 웨이브 정의 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
+	TArray<FMWaveDefinition> InvasionWaves;
 };

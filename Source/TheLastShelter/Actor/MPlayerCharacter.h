@@ -13,6 +13,7 @@ class UCameraComponent;
 class UInputMappingContext;
 class UInputAction;
 class UPaperZDAnimInstance;
+class UMStatComponent;
 
 /**
  * MPlayerCharacter
@@ -85,8 +86,8 @@ protected:
 
 public:
 	// ---- Stat ----
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	FMPhysicalStat PhysicalStat;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	TObjectPtr<UMStatComponent> StatComp;
 
 	// ---- Interaction ----
 	UFUNCTION(BlueprintCallable, Category = "Interaction")

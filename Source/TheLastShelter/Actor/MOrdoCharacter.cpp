@@ -1,6 +1,7 @@
 // Copyright TheLastShelter. All Rights Reserved.
 
 #include "MOrdoCharacter.h"
+#include "MStatComponent.h"
 #include "MDataManager.h"
 #include "MEveCharacter.h"
 #include "MOrdoAIController.h"
@@ -25,6 +26,9 @@ AMOrdoCharacter::AMOrdoCharacter()
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 
 	GetCharacterMovement()->MaxWalkSpeed = 200.f;
+
+	// ---- 스탯 컴포넌트 ----
+	StatComp = CreateDefaultSubobject<UMStatComponent>(TEXT("StatComp"));
 
 	// ---- 공격 VFX 컴포넌트 ----
 	AttackVFXComp = CreateDefaultSubobject<UNiagaraComponent>(TEXT("AttackVFX"));
@@ -80,12 +84,15 @@ void AMOrdoCharacter::InitializeFromData(const FString& OrdoID)
 		OrdoDataID = Data.ID;
 		OrdoName = Data.Name;
 		OrdoType = Data.OrdoType;
-		PhysicalStat = Data.PhysicalStat;
 		SkillIDs = Data.SkillIDs;
 		DropTableID = Data.DropTableID;
-		CurrentHealth = PhysicalStat.Health;
 
-		GetCharacterMovement()->MaxWalkSpeed = PhysicalStat.MoveSpeed;
+		if (StatComp)
+		{
+			StatComp->InitializeFromPhysicalStat(Data.PhysicalStat);
+		}
+
+		GetCharacterMovement()->MaxWalkSpeed = Data.PhysicalStat.MoveSpeed;
 
 		UE_LOG(LogTemp, Log, TEXT("[Ordo] Initialized: %s (%s)"), *OrdoName, *OrdoDataID);
 	}
@@ -93,27 +100,32 @@ void AMOrdoCharacter::InitializeFromData(const FString& OrdoID)
 
 void AMOrdoCharacter::TakeDamageFromPlayer(float Damage)
 {
-	const float ActualDamage = FMath::Max(0.f, Damage - PhysicalStat.Defense);
-	CurrentHealth -= ActualDamage;
-	CurrentHealth = FMath::Max(0.f, CurrentHealth);
+	if (!StatComp) return;
 
+	float actualDamage = StatComp->ApplyDamage(Damage);
 	PlayHitVFX();
 
-	UE_LOG(LogTemp, Log, TEXT("[Ordo] %s took %.1f damage (%.1f HP left)"), *OrdoName, ActualDamage, CurrentHealth);
+	UE_LOG(LogTemp, Log, TEXT("[Ordo] %s took %.1f damage (%.1f HP left)"),
+		*OrdoName, actualDamage, StatComp->GetCurrentHealth());
 
-	if (IsDead())
+	if (StatComp->IsDead())
 	{
 		SetAnimState(EMOrdoAnimState::Down);
 		IsPlayingActionAnim = true;
-		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 99999.f; // 사망 상태 유지
+		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 99999.f;
 		SpawnDropItems();
 	}
 	else
 	{
 		SetAnimState(EMOrdoAnimState::Hit);
 		IsPlayingActionAnim = true;
-		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 0.3f; // 피격 경직
+		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 0.3f;
 	}
+}
+
+bool AMOrdoCharacter::IsDead() const
+{
+	return StatComp ? StatComp->IsDead() : true;
 }
 
 void AMOrdoCharacter::SpawnDropItems()
@@ -165,7 +177,8 @@ void AMOrdoCharacter::PerformAttack(AActor* Target)
 	// 데미지 적용
 	if (AMEveCharacter* Eve = Cast<AMEveCharacter>(Target))
 	{
-		Eve->TakeDamageFromOrdo(PhysicalStat.Attack);
+		float attackPower = StatComp ? StatComp->GetAttackPower() : 0.f;
+		Eve->TakeDamageFromOrdo(attackPower);
 	}
 	// TODO: AMPlayerCharacter에대한 데미지 처리
 }
