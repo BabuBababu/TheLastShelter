@@ -1,11 +1,14 @@
 // Copyright TheLastShelter. All Rights Reserved.
 
 #include "MAIControllerBase.h"
+#include "MAITaskComponent.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 
 AMAIControllerBase::AMAIControllerBase()
 {
+	PrimaryActorTick.bCanEverTick = true;
+
 	// Perception 컴포넌트 생성
 	AIPerceptionComp = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
 	SetPerceptionComponent(*AIPerceptionComp);
@@ -17,7 +20,6 @@ AMAIControllerBase::AMAIControllerBase()
 	SightConfig->PeripheralVisionAngleDegrees = 90.f;
 	SightConfig->SetMaxAge(5.f);
 
-	// 적/아군 모두 감지 (하위 클래스에서 필터링)
 	SightConfig->DetectionByAffiliation.bDetectEnemies = true;
 	SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
 	SightConfig->DetectionByAffiliation.bDetectFriendlies = true;
@@ -30,7 +32,6 @@ void AMAIControllerBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Perception 업데이트 바인딩
 	if (AIPerceptionComp)
 	{
 		AIPerceptionComp->OnPerceptionUpdated.AddDynamic(this, &AMAIControllerBase::OnPerceptionUpdated);
@@ -41,44 +42,121 @@ void AMAIControllerBase::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
 	UE_LOG(LogTemp, Log, TEXT("[AIBase] Possessed: %s"), *InPawn->GetName());
+
+	// TaskComponent 탐색/생성
+	TaskComp = InPawn->FindComponentByClass<UMAITaskComponent>();
+	if (!TaskComp)
+	{
+		TaskComp = NewObject<UMAITaskComponent>(InPawn, TEXT("AITaskComp"));
+		TaskComp->RegisterComponent();
+		UE_LOG(LogTemp, Log, TEXT("[AIBase] Created AITaskComponent on %s"), *InPawn->GetName());
+	}
+
+	// 태스크 시작 콜백 바인딩
+	if (TaskComp)
+	{
+		TaskComp->OnTaskStarted.AddDynamic(this, &AMAIControllerBase::HandleTaskStarted);
+	}
 }
+
+void AMAIControllerBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!GetPawn()) return;
+
+	// 태스크 구동
+	if (TaskComp && TaskComp->HasCurrentTask())
+	{
+		ExecuteTask(DeltaTime, TaskComp->GetCurrentTask());
+	}
+	else
+	{
+		ExecuteIdleBehavior(DeltaTime);
+	}
+}
+
+// ---- 가상 함수 기본 구현 ----
+
+void AMAIControllerBase::ExecuteTask(float DeltaTime, const FMAITask& Task)
+{
+	// 기본: 아무것도 안함. 하위 클래스에서 오버라이드.
+}
+
+void AMAIControllerBase::ExecuteIdleBehavior(float DeltaTime)
+{
+	// 기본: 정지
+}
+
+void AMAIControllerBase::OnTaskBegin(const FMAITask& Task)
+{
+	// 하위 클래스에서 초기화용
+}
+
+// ---- Perception ----
 
 void AMAIControllerBase::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActors)
 {
-	// 기본 구현: 가장 가까운 감지 액터를 타겟으로 설정
-	// 하위 클래스에서 오버라이드하여 적/아군 구분
+	float minDist = MAX_FLT;
+	AActor* nearest = nullptr;
 
-	float MinDist = MAX_FLT;
-	AActor* Nearest = nullptr;
-
-	for (AActor* Actor : UpdatedActors)
+	for (AActor* actor : UpdatedActors)
 	{
-		if (!Actor || Actor == GetPawn()) continue;
+		if (!actor || actor == GetPawn()) continue;
 
-		FActorPerceptionBlueprintInfo Info;
-		AIPerceptionComp->GetActorsPerception(Actor, Info);
+		FActorPerceptionBlueprintInfo info;
+		AIPerceptionComp->GetActorsPerception(actor, info);
 
-		// 현재 감지중인지 확인
-		bool bCurrentlySensed = false;
-		for (const FAIStimulus& Stimulus : Info.LastSensedStimuli)
+		bool currentlySensed = false;
+		for (const FAIStimulus& stimulus : info.LastSensedStimuli)
 		{
-			if (Stimulus.WasSuccessfullySensed())
+			if (stimulus.WasSuccessfullySensed())
 			{
-				bCurrentlySensed = true;
+				currentlySensed = true;
 				break;
 			}
 		}
 
-		if (bCurrentlySensed)
+		if (currentlySensed)
 		{
-			const float Dist = FVector::Dist(GetPawn()->GetActorLocation(), Actor->GetActorLocation());
-			if (Dist < MinDist)
+			const float dist = FVector::Dist(GetPawn()->GetActorLocation(), actor->GetActorLocation());
+			if (dist < minDist)
 			{
-				MinDist = Dist;
-				Nearest = Actor;
+				minDist = dist;
+				nearest = actor;
 			}
 		}
 	}
 
-	DetectedTarget = Nearest;
+	DetectedTarget = nearest;
+}
+
+// ---- 태스크 편의 API ----
+
+void AMAIControllerBase::RequestTask(EMTaskType TaskType, EMTaskCategory Category,
+	AActor* Target, FVector Location, EMTaskPriority Priority)
+{
+	if (!TaskComp) return;
+	TaskComp->RequestTask(TaskType, Category, Target, Location, Priority);
+}
+
+void AMAIControllerBase::ForceTask(EMTaskType TaskType, EMTaskCategory Category,
+	AActor* Target, FVector Location)
+{
+	if (!TaskComp) return;
+	FMAITask task = FMAITask::MakeWithTarget(TaskType, Category, Target, EMTaskPriority::Interrupt);
+	task.TargetLocation = Location;
+	TaskComp->InterruptWithTask(task);
+}
+
+void AMAIControllerBase::ClearAllTasks()
+{
+	if (!TaskComp) return;
+	TaskComp->ClearAllTasks();
+	StopMovement();
+}
+
+void AMAIControllerBase::HandleTaskStarted(const FMAITask& Task)
+{
+	OnTaskBegin(Task);
 }

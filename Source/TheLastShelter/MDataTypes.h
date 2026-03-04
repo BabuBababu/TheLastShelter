@@ -126,7 +126,8 @@ enum class EMEveAnimState : uint8
 	GunIdle				UMETA(DisplayName = "총 대기하기"),
 
 	// ---- 전투 ----
-	GunShot				UMETA(DisplayName = "총 사격"),
+	GunShot_Down		UMETA(DisplayName = "총 아래 사격"),
+	GunShot_Up			UMETA(DisplayName = "총 위 사격"),
 	GunShot_Left		UMETA(DisplayName = "총 왼쪽 사격"),
 	GunShot_Right		UMETA(DisplayName = "총 오른쪽 사격"),
 	Hit					UMETA(DisplayName = "피격"),
@@ -177,7 +178,8 @@ enum class EMOrdoAnimState : uint8
 	GunIdle				UMETA(DisplayName = "총 대기하기"),
 
 	// ---- 전투 ----
-	GunShot				UMETA(DisplayName = "총 사격"),
+	GunShot_Down		UMETA(DisplayName = "총 아래 사격"),
+	GunShot_Up			UMETA(DisplayName = "총 위 사격"),
 	GunShot_Left		UMETA(DisplayName = "총 왼쪽 사격"),
 	GunShot_Right		UMETA(DisplayName = "총 오른쪽 사격"),
 	Hit					UMETA(DisplayName = "피격"),
@@ -812,4 +814,163 @@ struct FMHardshipEventData
 	/** 침공의 경우 사용할 웨이브 정의 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Hardship")
 	TArray<FMWaveDefinition> InvasionWaves;
+};
+
+// ============================================================
+// AI Task System
+// ============================================================
+
+/** 태스크 카테고리 — 전투 / 생활 구분 */
+UENUM(BlueprintType)
+enum class EMTaskCategory : uint8
+{
+	None		UMETA(DisplayName = "없음"),
+	Combat		UMETA(DisplayName = "전투"),
+	Life		UMETA(DisplayName = "생활")
+};
+
+/** 태스크 유형 — Eve/Ordo 모든 행동을 정형화 */
+UENUM(BlueprintType)
+enum class EMTaskType : uint8
+{
+	None					UMETA(DisplayName = "없음"),
+
+	// ---- 공통 전투 ----
+	Attack					UMETA(DisplayName = "공격"),
+	ForceAttack				UMETA(DisplayName = "강제 공격"),
+	HoldPosition			UMETA(DisplayName = "위치 고수"),
+	ForceMove				UMETA(DisplayName = "강제 이동"),
+
+	// ---- Eve 전투 ----
+	RetreatToShelter		UMETA(DisplayName = "숙소로 퇴각"),
+	UseSkill				UMETA(DisplayName = "스킬 사용"),
+
+	// ---- Ordo 전투 ----
+	Retreat					UMETA(DisplayName = "퇴각"),
+	DestroyStorage			UMETA(DisplayName = "창고 부수기"),
+	Kidnap					UMETA(DisplayName = "납치하기"),
+	AttackDefenseTower		UMETA(DisplayName = "방어타워 공격"),
+
+	// ---- Eve 생활 ----
+	Idle					UMETA(DisplayName = "대기"),
+	Move					UMETA(DisplayName = "이동"),
+	Carry					UMETA(DisplayName = "운반"),
+	ForceCarry				UMETA(DisplayName = "강제 운반"),
+	Rest					UMETA(DisplayName = "휴식"),
+	ForceRest				UMETA(DisplayName = "강제 휴식"),
+	Sex						UMETA(DisplayName = "섹스"),
+	ForceSex				UMETA(DisplayName = "강제 섹스"),
+	Masturbation			UMETA(DisplayName = "자위"),
+	ForceMasturbation		UMETA(DisplayName = "강제 자위"),
+
+	MAX						UMETA(Hidden)
+};
+
+/** 태스크 상태 — 대기 → 진행 → 완료 */
+UENUM(BlueprintType)
+enum class EMTaskState : uint8
+{
+	Pending		UMETA(DisplayName = "대기"),
+	InProgress	UMETA(DisplayName = "진행중"),
+	Completed	UMETA(DisplayName = "완료"),
+	Cancelled	UMETA(DisplayName = "취소됨")
+};
+
+/** 태스크 우선순위 — Force 태스크는 Interrupt 사용 */
+UENUM(BlueprintType)
+enum class EMTaskPriority : uint8
+{
+	Low			UMETA(DisplayName = "낮음"),
+	Normal		UMETA(DisplayName = "보통"),
+	High		UMETA(DisplayName = "높음"),
+	Interrupt	UMETA(DisplayName = "즉시 (강제)")
+};
+
+/**
+ * FMAITask — AI 태스크 하나를 표현하는 구조체.
+ * 큐에 들어가고, 상태 머신에 의해 순차 실행됨.
+ */
+USTRUCT(BlueprintType)
+struct FMAITask
+{
+	GENERATED_BODY()
+
+	/** 태스크 유형 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	EMTaskType TaskType = EMTaskType::None;
+
+	/** 태스크 카테고리 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	EMTaskCategory Category = EMTaskCategory::None;
+
+	/** 현재 상태 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	EMTaskState State = EMTaskState::Pending;
+
+	/** 우선순위 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	EMTaskPriority Priority = EMTaskPriority::Normal;
+
+	/** 대상 액터 (공격, 이동, 납치 등) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	TWeakObjectPtr<AActor> TargetActor;
+
+	/** 대상 위치 (이동, 퇴각 등) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	FVector TargetLocation = FVector::ZeroVector;
+
+	/** 스킬 슬롯 인덱스 (UseSkill 전용, 0~2) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	int32 SkillIndex = -1;
+
+	/** 태스크 시작 시각 (GetWorld()->GetTimeSeconds) */
+	UPROPERTY(BlueprintReadOnly, Category = "AITask")
+	float StartTime = 0.f;
+
+	/** 태스크 제한 시간 (초). 0이면 무제한. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AITask")
+	float TimeLimit = 0.f;
+
+	/** Force 계열 태스크인지 판별 */
+	bool IsForceTask() const
+	{
+		return TaskType == EMTaskType::ForceAttack
+			|| TaskType == EMTaskType::ForceMove
+			|| TaskType == EMTaskType::ForceCarry
+			|| TaskType == EMTaskType::ForceRest
+			|| TaskType == EMTaskType::ForceSex
+			|| TaskType == EMTaskType::ForceMasturbation
+			|| Priority == EMTaskPriority::Interrupt;
+	}
+
+	/** 유효한 태스크인지 확인 */
+	bool IsValid() const { return TaskType != EMTaskType::None; }
+
+	/** 빈 태스크 생성 헬퍼 */
+	static FMAITask MakeEmpty() { return FMAITask(); }
+
+	/** 간편 생성 헬퍼 */
+	static FMAITask Make(EMTaskType InType, EMTaskCategory InCategory, EMTaskPriority InPriority = EMTaskPriority::Normal)
+	{
+		FMAITask task;
+		task.TaskType = InType;
+		task.Category = InCategory;
+		task.Priority = InPriority;
+		if (task.IsForceTask()) task.Priority = EMTaskPriority::Interrupt;
+		return task;
+	}
+
+	static FMAITask MakeWithTarget(EMTaskType InType, EMTaskCategory InCategory, AActor* InTarget, EMTaskPriority InPriority = EMTaskPriority::Normal)
+	{
+		FMAITask task = Make(InType, InCategory, InPriority);
+		task.TargetActor = InTarget;
+		return task;
+	}
+
+	static FMAITask MakeWithLocation(EMTaskType InType, EMTaskCategory InCategory, FVector InLocation, EMTaskPriority InPriority = EMTaskPriority::Normal)
+	{
+		FMAITask task = Make(InType, InCategory, InPriority);
+		task.TargetLocation = InLocation;
+		return task;
+	}
 };

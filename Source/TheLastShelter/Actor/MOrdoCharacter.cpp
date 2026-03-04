@@ -98,9 +98,18 @@ void AMOrdoCharacter::InitializeFromData(int32 OrdoId)
 	}
 }
 
-void AMOrdoCharacter::TakeDamageFromPlayer(float Damage)
+void AMOrdoCharacter::TakeDamageFromPlayer(float Damage, AActor* Attacker)
 {
 	if (!StatComp) return;
+
+	// 공격자를 AI 컨트롤러에 알림 → 반격 우선 타겟 설정
+	if (Attacker)
+	{
+		if (auto* AICtrl = Cast<AMAIControllerBase>(GetController()))
+		{
+			AICtrl->SetLastAttacker(Attacker);
+		}
+	}
 
 	float actualDamage = StatComp->ApplyDamage(Damage);
 	PlayHitVFX();
@@ -161,12 +170,18 @@ void AMOrdoCharacter::PerformAttack(AActor* Target)
 {
 	if (IsDead() || !Target || IsPlayingActionAnim) return;
 
-	// 타겟 방향 기반 좌/우 공격 판정
-	const float dirX = Target->GetActorLocation().X - GetActorLocation().X;
-	if (dirX >= 0.f)
-		SetAnimState(EMOrdoAnimState::GunShot_Right);
+	// 타겟 방향 기반 4방향 공격 판정
+	const FVector dir = Target->GetActorLocation() - GetActorLocation();
+	const float absX = FMath::Abs(dir.X);
+	const float absY = FMath::Abs(dir.Y);
+	if (absX >= absY)
+	{
+		SetAnimState(dir.X >= 0.f ? EMOrdoAnimState::GunShot_Right : EMOrdoAnimState::GunShot_Left);
+	}
 	else
-		SetAnimState(EMOrdoAnimState::GunShot_Left);
+	{
+		SetAnimState(dir.Y >= 0.f ? EMOrdoAnimState::GunShot_Up : EMOrdoAnimState::GunShot_Down);
+	}
 
 	PlayAttackVFX();
 
@@ -178,7 +193,7 @@ void AMOrdoCharacter::PerformAttack(AActor* Target)
 	if (AMEveCharacter* Eve = Cast<AMEveCharacter>(Target))
 	{
 		float attackPower = StatComp ? StatComp->GetAttackPower() : 0.f;
-		Eve->TakeDamageFromOrdo(attackPower);
+		Eve->TakeDamageFromOrdo(attackPower, this);
 	}
 	// TODO: AMPlayerCharacter에대한 데미지 처리
 }

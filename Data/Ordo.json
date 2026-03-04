@@ -1,0 +1,68 @@
+[
+  {
+    "ID": 1001,
+    "Name": "라르바",
+    "OrdoType": 0,
+    "DropTableID": 0,
+    "SpritePath": "/Game/Assets/Sprites/Ordos/Axiom/Larva",
+    "PhysicalStat": {
+      "Attack": 4,
+      "Defense": 2,
+      "Health": 40,
+      "Stamina": 30,
+      "MoveSpeed": 150,
+      "WorkSpeed": 0,
+      "AttackSpeed": 0.8,
+      "Recovery": 0.5,
+      "Accuracy": 30,
+      "Evasion": 5,
+      "CritChance": 0,
+      "CritDamage": 1.0
+    },
+    "SkillIDs": []
+  },
+  {
+    "ID": 1002,
+    "Name": "라르바 돌격병",
+    "OrdoType": 0,
+    "DropTableID": 0,
+    "SpritePath": "/Game/Assets/Sprites/Ordos/Axiom/Larva",
+    "PhysicalStat": {
+      "Attack": 6,
+      "Defense": 3,
+      "Health": 55,
+      "Stamina": 40,
+      "MoveSpeed": 180,
+      "WorkSpeed": 0,
+      "AttackSpeed": 1.0,
+      "Recovery": 0.5,
+      "Accuracy": 40,
+      "Evasion": 8,
+      "CritChance": 3,
+      "CritDamage": 1.2
+    },
+    "SkillIDs": []
+  },
+  {
+    "ID": 1003,
+    "Name": "라르바 정찰병",
+    "OrdoType": 0,
+    "DropTableID": 0,
+    "SpritePath": "/Game/Assets/Sprites/Ordos/Axiom/Larva",
+    "PhysicalStat": {
+      "Attack": 3,
+      "Defense": 1,
+      "Health": 30,
+      "Stamina": 50,
+      "MoveSpeed": 220,
+      "WorkSpeed": 0,
+      "AttackSpeed": 1.2,
+      "Recovery": 0.3,
+      "Accuracy": 50,
+      "Evasion": 15,
+      "CritChance": 8,
+      "CritDamage": 1.5
+    },
+    "SkillIDs": []
+  }
+]

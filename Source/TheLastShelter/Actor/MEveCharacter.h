@@ -152,7 +152,7 @@ public:
 	void PerformAttack(AActor* Target);
 
 	UFUNCTION(BlueprintCallable, Category = "Eve|Combat")
-	void TakeDamageFromOrdo(float Damage);
+	void TakeDamageFromOrdo(float Damage, AActor* Attacker = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "Eve|Combat")
 	bool IsDead() const;

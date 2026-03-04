@@ -1,6 +1,6 @@
 [
   {
-    "ID": "EVE_001",
+    "ID": 1,
     "Name": "미즈키",
     "Affection": 0,
     "SpritePath": "/Game/Assets/Sprites/Eve/Mizuki",
@@ -33,6 +33,6 @@
       "Generosity": 15
     },
     "HiddenStats": [],
-    "SkillIDs": ["SKILL_001"]
+    "SkillIDs": []
   }
 ]
