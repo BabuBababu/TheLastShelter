@@ -143,13 +143,14 @@ void UMDataManager::LoadEveData()
 	if (!LoadJsonFile(TEXT("Eve.json"), JsonArray)) return;
 
 	EveDataArray.Empty();
+	EveDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMEveData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.Affection = Obj->GetNumberField(TEXT("Affection"));
 		Data.SpritePath = Obj->GetStringField(TEXT("SpritePath"));
@@ -179,9 +180,10 @@ void UMDataManager::LoadEveData()
 		if (Obj->TryGetArrayField(TEXT("SkillIDs"), SkillArr))
 		{
 			for (const auto& S : *SkillArr)
-				Data.SkillIDs.Add(S->AsString());
+				Data.SkillIDs.Add(static_cast<int32>(S->AsNumber()));
 		}
 
+		EveDataMap.Add(Data.Id, Data);
 		EveDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d Eve entries"), EveDataArray.Num());
@@ -193,16 +195,17 @@ void UMDataManager::LoadOrdoData()
 	if (!LoadJsonFile(TEXT("Ordo.json"), JsonArray)) return;
 
 	OrdoDataArray.Empty();
+	OrdoDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMOrdoData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.OrdoType = static_cast<EMOrdoType>(static_cast<int32>(Obj->GetNumberField(TEXT("OrdoType"))));
-		Data.DropTableID = Obj->GetStringField(TEXT("DropTableID"));
+		Data.DropTableID = static_cast<int32>(Obj->GetNumberField(TEXT("DropTableID")));
 		Data.SpritePath = Obj->GetStringField(TEXT("SpritePath"));
 
 		const TSharedPtr<FJsonObject>* PhysObj;
@@ -212,8 +215,9 @@ void UMDataManager::LoadOrdoData()
 		const TArray<TSharedPtr<FJsonValue>>* SkillArr;
 		if (Obj->TryGetArrayField(TEXT("SkillIDs"), SkillArr))
 			for (const auto& S : *SkillArr)
-				Data.SkillIDs.Add(S->AsString());
+				Data.SkillIDs.Add(static_cast<int32>(S->AsNumber()));
 
+		OrdoDataMap.Add(Data.Id, Data);
 		OrdoDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d Ordo entries"), OrdoDataArray.Num());
@@ -225,18 +229,20 @@ void UMDataManager::LoadPrimalData()
 	if (!LoadJsonFile(TEXT("Primal.json"), JsonArray)) return;
 
 	PrimalDataArray.Empty();
+	PrimalDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMPrimalData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.PrimalType = static_cast<EMPrimalType>(static_cast<int32>(Obj->GetNumberField(TEXT("PrimalType"))));
-		Data.DropTableID = Obj->GetStringField(TEXT("DropTableID"));
+		Data.DropTableID = static_cast<int32>(Obj->GetNumberField(TEXT("DropTableID")));
 		Data.SpritePath = Obj->GetStringField(TEXT("SpritePath"));
 
+		PrimalDataMap.Add(Data.Id, Data);
 		PrimalDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d Primal entries"), PrimalDataArray.Num());
@@ -248,13 +254,14 @@ void UMDataManager::LoadItemData()
 	if (!LoadJsonFile(TEXT("Item.json"), JsonArray)) return;
 
 	ItemDataArray.Empty();
+	ItemDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMItemData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.Description = Obj->GetStringField(TEXT("Description"));
 		Data.ItemType = static_cast<EMItemType>(static_cast<int32>(Obj->GetNumberField(TEXT("ItemType"))));
@@ -279,6 +286,7 @@ void UMDataManager::LoadItemData()
 		if (Obj->TryGetObjectField(TEXT("BonusStat"), BonusObj))
 			Data.BonusStat = ParsePhysicalStat(*BonusObj);
 
+		ItemDataMap.Add(Data.Id, Data);
 		ItemDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d Item entries"), ItemDataArray.Num());
@@ -296,7 +304,7 @@ void UMDataManager::LoadStatData()
 		if (!Obj.IsValid()) continue;
 
 		FMStatDefinition Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.Description = Obj->GetStringField(TEXT("Description"));
 		Data.IsPhysical = Obj->GetBoolField(TEXT("IsPhysical"));
@@ -318,7 +326,7 @@ void UMDataManager::LoadHiddenStatData()
 		if (!Obj.IsValid()) continue;
 
 		FMHiddenStatData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Type = static_cast<EMHiddenStatType>(static_cast<int32>(Obj->GetNumberField(TEXT("Type"))));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.Description = Obj->GetStringField(TEXT("Description"));
@@ -341,19 +349,21 @@ void UMDataManager::LoadSkillData()
 	if (!LoadJsonFile(TEXT("Skill.json"), JsonArray)) return;
 
 	SkillDataArray.Empty();
+	SkillDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMSkillData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.Description = Obj->GetStringField(TEXT("Description"));
 		Data.Cooldown = Obj->GetNumberField(TEXT("Cooldown"));
 		Data.Damage = Obj->GetNumberField(TEXT("Damage"));
 		Data.AnimationID = Obj->GetStringField(TEXT("AnimationID"));
 
+		SkillDataMap.Add(Data.Id, Data);
 		SkillDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d Skill entries"), SkillDataArray.Num());
@@ -365,13 +375,14 @@ void UMDataManager::LoadDropItemsData()
 	if (!LoadJsonFile(TEXT("DropItems.json"), JsonArray)) return;
 
 	DropTableDataArray.Empty();
+	DropTableDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMDropTableData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 
 		const TArray<TSharedPtr<FJsonValue>>* EntriesArr;
 		if (Obj->TryGetArrayField(TEXT("Entries"), EntriesArr))
@@ -380,7 +391,7 @@ void UMDataManager::LoadDropItemsData()
 			{
 				const TSharedPtr<FJsonObject>& EntryObj = E->AsObject();
 				FMDropItemEntry Entry;
-				Entry.ItemID = EntryObj->GetStringField(TEXT("ItemID"));
+				Entry.ItemId = static_cast<int32>(EntryObj->GetNumberField(TEXT("ItemID")));
 				Entry.DropRate = EntryObj->GetNumberField(TEXT("DropRate"));
 				Entry.MinCount = static_cast<int32>(EntryObj->GetNumberField(TEXT("MinCount")));
 				Entry.MaxCount = static_cast<int32>(EntryObj->GetNumberField(TEXT("MaxCount")));
@@ -388,6 +399,7 @@ void UMDataManager::LoadDropItemsData()
 			}
 		}
 
+		DropTableDataMap.Add(Data.Id, Data);
 		DropTableDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d DropTable entries"), DropTableDataArray.Num());
@@ -405,7 +417,7 @@ void UMDataManager::LoadEventData()
 		if (!Obj.IsValid()) continue;
 
 		FMEventData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.EventType = static_cast<EMEventType>(static_cast<int32>(Obj->GetNumberField(TEXT("EventType"))));
 		Data.Description = Obj->GetStringField(TEXT("Description"));
 		Data.TriggerProbability = Obj->GetNumberField(TEXT("TriggerProbability"));
@@ -427,7 +439,7 @@ void UMDataManager::LoadSpecialEventData()
 		if (!Obj.IsValid()) continue;
 
 		FMSpecialEventData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Title = Obj->GetStringField(TEXT("Title"));
 
 		const TArray<TSharedPtr<FJsonValue>>* LinesArr;
@@ -454,8 +466,8 @@ void UMDataManager::LoadEveDialogData()
 		if (!Obj.IsValid()) continue;
 
 		FMEveDialogData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
-		Data.EveID = Obj->GetStringField(TEXT("EveID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
+		Data.EveId = static_cast<int32>(Obj->GetNumberField(TEXT("EveID")));
 		Data.Emotion = static_cast<EMEmotion>(static_cast<int32>(Obj->GetNumberField(TEXT("Emotion"))));
 		Data.EventCondition = static_cast<EMEventType>(static_cast<int32>(Obj->GetNumberField(TEXT("EventCondition"))));
 		Data.DialogText = Obj->GetStringField(TEXT("DialogText"));
@@ -477,8 +489,8 @@ void UMDataManager::LoadOrdoDialogData()
 		if (!Obj.IsValid()) continue;
 
 		FMOrdoDialogData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
-		Data.OrdoID = Obj->GetStringField(TEXT("OrdoID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
+		Data.OrdoId = static_cast<int32>(Obj->GetNumberField(TEXT("OrdoID")));
 		Data.DialogText = Obj->GetStringField(TEXT("DialogText"));
 
 		OrdoDialogDataArray.Add(MoveTemp(Data));
@@ -498,7 +510,7 @@ void UMDataManager::LoadPlayerDialogData()
 		if (!Obj.IsValid()) continue;
 
 		FMPlayerDialogData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.EventCondition = static_cast<EMEventType>(static_cast<int32>(Obj->GetNumberField(TEXT("EventCondition"))));
 		Data.DialogText = Obj->GetStringField(TEXT("DialogText"));
 
@@ -513,13 +525,14 @@ void UMDataManager::LoadLootingObjectData()
 	if (!LoadJsonFile(TEXT("LootingObject.json"), JsonArray)) return;
 
 	LootingObjectDataArray.Empty();
+	LootingObjectDataMap.Empty();
 	for (const auto& Val : JsonArray)
 	{
 		const TSharedPtr<FJsonObject>& Obj = Val->AsObject();
 		if (!Obj.IsValid()) continue;
 
 		FMLootingObjectData Data;
-		Data.ID = Obj->GetStringField(TEXT("ID"));
+		Data.Id = static_cast<int32>(Obj->GetNumberField(TEXT("ID")));
 		Data.Name = Obj->GetStringField(TEXT("Name"));
 		Data.SpritePath = Obj->GetStringField(TEXT("SpritePath"));
 
@@ -527,77 +540,85 @@ void UMDataManager::LoadLootingObjectData()
 		if (Obj->TryGetArrayField(TEXT("SpawnItemIDs"), ItemArr))
 		{
 			for (const auto& I : *ItemArr)
-				Data.SpawnItemIDs.Add(I->AsString());
+				Data.SpawnItemIds.Add(static_cast<int32>(I->AsNumber()));
 		}
 
+		LootingObjectDataMap.Add(Data.Id, Data);
 		LootingObjectDataArray.Add(MoveTemp(Data));
 	}
 	UE_LOG(LogTemp, Log, TEXT("[MDataManager] Loaded %d LootingObject entries"), LootingObjectDataArray.Num());
 }
 
 // ============================================================
-// ID로 조회
+// ID로 조회 (TMap O(1))
 // ============================================================
 
-bool UMDataManager::GetEveDataByID(const FString& ID, FMEveData& OutData) const
+bool UMDataManager::GetEveDataByID(int32 Id, FMEveData& OutData) const
 {
-	for (const auto& Data : EveDataArray)
+	if (const FMEveData* found = EveDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
 
-bool UMDataManager::GetOrdoDataByID(const FString& ID, FMOrdoData& OutData) const
+bool UMDataManager::GetOrdoDataByID(int32 Id, FMOrdoData& OutData) const
 {
-	for (const auto& Data : OrdoDataArray)
+	if (const FMOrdoData* found = OrdoDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
 
-bool UMDataManager::GetPrimalDataByID(const FString& ID, FMPrimalData& OutData) const
+bool UMDataManager::GetPrimalDataByID(int32 Id, FMPrimalData& OutData) const
 {
-	for (const auto& Data : PrimalDataArray)
+	if (const FMPrimalData* found = PrimalDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
 
-bool UMDataManager::GetItemDataByID(const FString& ID, FMItemData& OutData) const
+bool UMDataManager::GetItemDataByID(int32 Id, FMItemData& OutData) const
 {
-	for (const auto& Data : ItemDataArray)
+	if (const FMItemData* found = ItemDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
 
-bool UMDataManager::GetSkillDataByID(const FString& ID, FMSkillData& OutData) const
+bool UMDataManager::GetSkillDataByID(int32 Id, FMSkillData& OutData) const
 {
-	for (const auto& Data : SkillDataArray)
+	if (const FMSkillData* found = SkillDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
 
-bool UMDataManager::GetDropTableByID(const FString& ID, FMDropTableData& OutData) const
+bool UMDataManager::GetDropTableByID(int32 Id, FMDropTableData& OutData) const
 {
-	for (const auto& Data : DropTableDataArray)
+	if (const FMDropTableData* found = DropTableDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
 
-bool UMDataManager::GetLootingObjectDataByID(const FString& ID, FMLootingObjectData& OutData) const
+bool UMDataManager::GetLootingObjectDataByID(int32 Id, FMLootingObjectData& OutData) const
 {
-	for (const auto& Data : LootingObjectDataArray)
+	if (const FMLootingObjectData* found = LootingObjectDataMap.Find(Id))
 	{
-		if (Data.ID == ID) { OutData = Data; return true; }
+		OutData = *found;
+		return true;
 	}
 	return false;
 }
@@ -606,23 +627,23 @@ bool UMDataManager::GetLootingObjectDataByID(const FString& ID, FMLootingObjectD
 // 다이얼로그 필터 조회
 // ============================================================
 
-TArray<FMEveDialogData> UMDataManager::GetEveDialogs(const FString& EveID, EMEmotion Emotion, EMEventType EventType) const
+TArray<FMEveDialogData> UMDataManager::GetEveDialogs(int32 EveId, EMEmotion Emotion, EMEventType EventType) const
 {
 	TArray<FMEveDialogData> Results;
 	for (const auto& Data : EveDialogDataArray)
 	{
-		if (Data.EveID == EveID && Data.Emotion == Emotion && Data.EventCondition == EventType)
+		if (Data.EveId == EveId && Data.Emotion == Emotion && Data.EventCondition == EventType)
 			Results.Add(Data);
 	}
 	return Results;
 }
 
-TArray<FMOrdoDialogData> UMDataManager::GetOrdoDialogs(const FString& OrdoID) const
+TArray<FMOrdoDialogData> UMDataManager::GetOrdoDialogs(int32 OrdoId) const
 {
 	TArray<FMOrdoDialogData> Results;
 	for (const auto& Data : OrdoDialogDataArray)
 	{
-		if (Data.OrdoID == OrdoID)
+		if (Data.OrdoId == OrdoId)
 			Results.Add(Data);
 	}
 	return Results;

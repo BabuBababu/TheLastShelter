@@ -33,28 +33,28 @@ public:
 	const TArray<FMEveData>& GetAllEveData() const { return EveDataArray; }
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Eve")
-	bool GetEveDataByID(const FString& ID, FMEveData& OutData) const;
+	bool GetEveDataByID(int32 Id, FMEveData& OutData) const;
 
 	// --- Ordo ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Ordo")
 	const TArray<FMOrdoData>& GetAllOrdoData() const { return OrdoDataArray; }
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Ordo")
-	bool GetOrdoDataByID(const FString& ID, FMOrdoData& OutData) const;
+	bool GetOrdoDataByID(int32 Id, FMOrdoData& OutData) const;
 
 	// --- Primal ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Primal")
 	const TArray<FMPrimalData>& GetAllPrimalData() const { return PrimalDataArray; }
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Primal")
-	bool GetPrimalDataByID(const FString& ID, FMPrimalData& OutData) const;
+	bool GetPrimalDataByID(int32 Id, FMPrimalData& OutData) const;
 
 	// --- Item ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Item")
 	const TArray<FMItemData>& GetAllItemData() const { return ItemDataArray; }
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Item")
-	bool GetItemDataByID(const FString& ID, FMItemData& OutData) const;
+	bool GetItemDataByID(int32 Id, FMItemData& OutData) const;
 
 	// --- Stat ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Stat")
@@ -69,11 +69,11 @@ public:
 	const TArray<FMSkillData>& GetAllSkillData() const { return SkillDataArray; }
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Skill")
-	bool GetSkillDataByID(const FString& ID, FMSkillData& OutData) const;
+	bool GetSkillDataByID(int32 Id, FMSkillData& OutData) const;
 
 	// --- DropTable ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Drop")
-	bool GetDropTableByID(const FString& ID, FMDropTableData& OutData) const;
+	bool GetDropTableByID(int32 Id, FMDropTableData& OutData) const;
 
 	// --- Event ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Event")
@@ -85,17 +85,17 @@ public:
 
 	// --- Dialog ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Dialog")
-	TArray<FMEveDialogData> GetEveDialogs(const FString& EveID, EMEmotion Emotion, EMEventType EventType) const;
+	TArray<FMEveDialogData> GetEveDialogs(int32 EveId, EMEmotion Emotion, EMEventType EventType) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Dialog")
-	TArray<FMOrdoDialogData> GetOrdoDialogs(const FString& OrdoID) const;
+	TArray<FMOrdoDialogData> GetOrdoDialogs(int32 OrdoId) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Data|Dialog")
 	TArray<FMPlayerDialogData> GetPlayerDialogs(EMEventType EventType) const;
 
 	// --- LootingObject ---
 	UFUNCTION(BlueprintCallable, Category = "Data|Loot")
-	bool GetLootingObjectDataByID(const FString& ID, FMLootingObjectData& OutData) const;
+	bool GetLootingObjectDataByID(int32 Id, FMLootingObjectData& OutData) const;
 
 private:
 	// --- 개별 테이블 로드 ---
@@ -120,7 +120,7 @@ private:
 	static FMPhysicalStat ParsePhysicalStat(const TSharedPtr<FJsonObject>& JsonObj);
 	static FMMentalStat ParseMentalStat(const TSharedPtr<FJsonObject>& JsonObj);
 
-	// --- 데이터 저장소 ---
+	// --- 데이터 저장소 (Array) ---
 	UPROPERTY()
 	TArray<FMEveData> EveDataArray;
 
@@ -162,6 +162,15 @@ private:
 
 	UPROPERTY()
 	TArray<FMLootingObjectData> LootingObjectDataArray;
+
+	// --- TMap 캐시 (Id → 구조체, O(1) 조회) ---
+	TMap<int32, FMEveData> EveDataMap;
+	TMap<int32, FMOrdoData> OrdoDataMap;
+	TMap<int32, FMPrimalData> PrimalDataMap;
+	TMap<int32, FMItemData> ItemDataMap;
+	TMap<int32, FMSkillData> SkillDataMap;
+	TMap<int32, FMDropTableData> DropTableDataMap;
+	TMap<int32, FMLootingObjectData> LootingObjectDataMap;
 
 	/** JSON 데이터 경로 */
 	FString DataDirectoryPath;

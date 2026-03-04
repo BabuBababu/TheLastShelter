@@ -46,10 +46,10 @@ void AMEveCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// EveDataID가 설정되어 있으면 데이터에서 초기화
-	if (!EveDataID.IsEmpty())
+	// EveDataId가 설정되어 있으면 데이터에서 초기화
+	if (EveDataId > 0)
 	{
-		InitializeFromData(EveDataID);
+		InitializeFromData(EveDataId);
 	}
 
 	// 초기 애니메이션 상태 강제 적용 (Idle 플립북 표시)
@@ -73,7 +73,7 @@ void AMEveCharacter::Tick(float DeltaTime)
 	UpdateAnimStateFromMovement();
 }
 
-void AMEveCharacter::InitializeFromData(const FString& EveID)
+void AMEveCharacter::InitializeFromData(int32 EveId)
 {
 	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
 	if (!GI) return;
@@ -82,9 +82,9 @@ void AMEveCharacter::InitializeFromData(const FString& EveID)
 	if (!DataMgr) return;
 
 	FMEveData Data;
-	if (DataMgr->GetEveDataByID(EveID, Data))
+	if (DataMgr->GetEveDataByID(EveId, Data))
 	{
-		EveDataID = Data.ID;
+		EveDataId = Data.Id;
 		EveName = Data.Name;
 		MentalStat = Data.MentalStat;
 		Affection = Data.Affection;
@@ -100,17 +100,18 @@ void AMEveCharacter::InitializeFromData(const FString& EveID)
 		GetCharacterMovement()->MaxWalkSpeed = Data.PhysicalStat.MoveSpeed;
 
 		// 인벤토리 매니저에 이 Eve의 인벤토리 생성
+		const FString ownerKey = FString::FromInt(EveDataId);
 		UMInventoryManager* InvMgr = GI->GetSubsystem<UMInventoryManager>();
-		if (InvMgr && !InvMgr->HasInventory(EveDataID))
+		if (InvMgr && !InvMgr->HasInventory(ownerKey))
 		{
-			InvMgr->CreateInventory(EveDataID, 20);
+			InvMgr->CreateInventory(ownerKey, 20);
 		}
 
-		UE_LOG(LogTemp, Log, TEXT("[Eve] Initialized: %s (%s)"), *EveName, *EveDataID);
+		UE_LOG(LogTemp, Log, TEXT("[Eve] Initialized: %s (Id=%d)"), *EveName, EveDataId);
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Eve] Failed to load data for ID: %s"), *EveID);
+		UE_LOG(LogTemp, Warning, TEXT("[Eve] Failed to load data for Id: %d"), EveId);
 	}
 }
 

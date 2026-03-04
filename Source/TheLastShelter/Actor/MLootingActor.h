@@ -30,7 +30,7 @@ protected:
 public:
 	/** 루팅 오브젝트 ID로 초기화 */
 	UFUNCTION(BlueprintCallable, Category = "Looting")
-	void InitializeFromData(const FString& InLootingID);
+	void InitializeFromData(int32 InLootingId);
 
 	/** 플레이어/Eve가 상호작용 시 호출 */
 	UFUNCTION(BlueprintCallable, Category = "Looting")
@@ -38,7 +38,7 @@ public:
 
 	// ---- 데이터 ----
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Looting")
-	FString LootingObjectID;
+	int32 LootingObjectId = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Looting")
 	FMLootingObjectData CachedLootingData;

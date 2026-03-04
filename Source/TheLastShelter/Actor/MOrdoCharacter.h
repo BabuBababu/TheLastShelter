@@ -33,7 +33,7 @@ protected:
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Ordo")
-	void InitializeFromData(const FString& OrdoID);
+	void InitializeFromData(int32 OrdoId);
 
 	// ============================================================
 	// 컴포넌트
@@ -106,7 +106,7 @@ public:
 	// ============================================================
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
-	FString OrdoDataID;
+	int32 OrdoDataId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
 	FString OrdoName;
@@ -115,10 +115,10 @@ public:
 	EMOrdoType OrdoType = EMOrdoType::Axiom;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
-	TArray<FString> SkillIDs;
+	TArray<int32> SkillIDs;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
-	FString DropTableID;
+	int32 DropTableID = 0;
 
 	// ---- 전투 ----
 	UPROPERTY(BlueprintReadOnly, Category = "Ordo|Combat")

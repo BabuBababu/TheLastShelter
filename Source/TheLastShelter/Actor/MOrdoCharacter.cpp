@@ -45,9 +45,9 @@ void AMOrdoCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!OrdoDataID.IsEmpty())
+	if (OrdoDataId > 0)
 	{
-		InitializeFromData(OrdoDataID);
+		InitializeFromData(OrdoDataId);
 	}
 
 	// 초기 애니메이션 상태 강제 적용 (GunIdle 플립북 표시)
@@ -70,7 +70,7 @@ void AMOrdoCharacter::Tick(float DeltaTime)
 	UpdateAnimStateFromMovement();
 }
 
-void AMOrdoCharacter::InitializeFromData(const FString& OrdoID)
+void AMOrdoCharacter::InitializeFromData(int32 OrdoId)
 {
 	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
 	if (!GI) return;
@@ -79,9 +79,9 @@ void AMOrdoCharacter::InitializeFromData(const FString& OrdoID)
 	if (!DataMgr) return;
 
 	FMOrdoData Data;
-	if (DataMgr->GetOrdoDataByID(OrdoID, Data))
+	if (DataMgr->GetOrdoDataByID(OrdoId, Data))
 	{
-		OrdoDataID = Data.ID;
+		OrdoDataId = Data.Id;
 		OrdoName = Data.Name;
 		OrdoType = Data.OrdoType;
 		SkillIDs = Data.SkillIDs;
@@ -94,7 +94,7 @@ void AMOrdoCharacter::InitializeFromData(const FString& OrdoID)
 
 		GetCharacterMovement()->MaxWalkSpeed = Data.PhysicalStat.MoveSpeed;
 
-		UE_LOG(LogTemp, Log, TEXT("[Ordo] Initialized: %s (%s)"), *OrdoName, *OrdoDataID);
+		UE_LOG(LogTemp, Log, TEXT("[Ordo] Initialized: %s (Id=%d)"), *OrdoName, OrdoDataId);
 	}
 }
 
@@ -148,7 +148,7 @@ void AMOrdoCharacter::SpawnDropItems()
 		if (SpawnCount <= 0) continue;
 
 		// MItemActor 스폰 (TODO: 실제 MItemActor 클래스 지정)
-		UE_LOG(LogTemp, Log, TEXT("[Ordo] %s drops item: %s x%d"), *OrdoName, *Entry.ItemID, SpawnCount);
+		UE_LOG(LogTemp, Log, TEXT("[Ordo] %s drops item Id: %d x%d"), *OrdoName, Entry.ItemId, SpawnCount);
 		// TODO: GetWorld()->SpawnActor<AMItemActor>(...)
 	}
 }

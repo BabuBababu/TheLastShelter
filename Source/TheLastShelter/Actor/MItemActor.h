@@ -29,7 +29,7 @@ protected:
 public:
 	/** 아이템 ID로 초기화 */
 	UFUNCTION(BlueprintCallable, Category = "Item")
-	void InitializeFromData(const FString& InItemID, int32 InCount = 1);
+	void InitializeFromData(int32 InItemId, int32 InCount = 1);
 
 	/** 플레이어/Eve가 상호작용 시 호출 */
 	UFUNCTION(BlueprintCallable, Category = "Item")
@@ -37,7 +37,7 @@ public:
 
 	// ---- 데이터 ----
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
-	FString ItemID;
+	int32 ItemId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
 	int32 ItemCount = 1;

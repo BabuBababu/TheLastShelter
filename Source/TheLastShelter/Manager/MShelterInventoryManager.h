@@ -41,11 +41,11 @@ public:
 	 * @return 남은 수량 (0이면 전부 추가됨)
 	 */
 	UFUNCTION(BlueprintCallable, Category = "ShelterInventory")
-	int32 AddItem(const FString& ItemID, int32 Count = 1);
+	int32 AddItem(int32 ItemId, int32 Count = 1);
 
 	/** 쉘터에서 아이템 제거. @return 실제 제거된 수량 */
 	UFUNCTION(BlueprintCallable, Category = "ShelterInventory")
-	int32 RemoveItem(const FString& ItemID, int32 Count = 1);
+	int32 RemoveItem(int32 ItemId, int32 Count = 1);
 
 	// ============================================================
 	// 조회
@@ -53,7 +53,7 @@ public:
 
 	/** 특정 아이템 보유 수량 */
 	UFUNCTION(BlueprintCallable, Category = "ShelterInventory")
-	int32 GetItemCount(const FString& ItemID) const;
+	int32 GetItemCount(int32 ItemId) const;
 
 	/** 전체 슬롯 조회 */
 	UFUNCTION(BlueprintCallable, Category = "ShelterInventory")
@@ -117,11 +117,11 @@ private:
 	TArray<FMInventorySlot> Slots;
 
 	/** 아이템 최대 스택 조회 (MDataManager 위임) */
-	int32 GetMaxStack(const FString& ItemID) const;
+	int32 GetMaxStack(int32 ItemId) const;
 
 	/** EMItemType → EMShelterStorageCategory 매핑 */
 	EMShelterStorageCategory MapItemTypeToCategory(EMItemType ItemType) const;
 
 	/** 특정 아이템이 속하는 카테고리 조회 */
-	EMShelterStorageCategory GetItemCategory(const FString& ItemID) const;
+	EMShelterStorageCategory GetItemCategory(int32 ItemId) const;
 };

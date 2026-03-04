@@ -32,15 +32,15 @@ void AMItemActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!ItemID.IsEmpty())
+	if (ItemId > 0)
 	{
-		InitializeFromData(ItemID, ItemCount);
+		InitializeFromData(ItemId, ItemCount);
 	}
 }
 
-void AMItemActor::InitializeFromData(const FString& InItemID, int32 InCount)
+void AMItemActor::InitializeFromData(int32 InItemId, int32 InCount)
 {
-	ItemID = InItemID;
+	ItemId = InItemId;
 	ItemCount = FMath::Max(1, InCount);
 
 	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
@@ -49,7 +49,7 @@ void AMItemActor::InitializeFromData(const FString& InItemID, int32 InCount)
 	UMDataManager* DataMgr = GI->GetSubsystem<UMDataManager>();
 	if (!DataMgr) return;
 
-	if (DataMgr->GetItemDataByID(ItemID, CachedItemData))
+	if (DataMgr->GetItemDataByID(ItemId, CachedItemData))
 	{
 		// TODO: SpritePath를 사용하여 UPaperSprite 에셋을 동적 로드 후 SpriteComp에 설정
 		UE_LOG(LogTemp, Log, TEXT("[ItemActor] Initialized: %s x%d"), *CachedItemData.Name, ItemCount);
@@ -64,7 +64,7 @@ void AMItemActor::OnPickup(const FString& PickerOwnerID)
 	UMInventoryManager* InvMgr = GI->GetSubsystem<UMInventoryManager>();
 	if (!InvMgr) return;
 
-	const int32 Remaining = InvMgr->AddItem(PickerOwnerID, ItemID, ItemCount);
+	const int32 Remaining = InvMgr->AddItem(PickerOwnerID, ItemId, ItemCount);
 
 	if (Remaining > 0)
 	{

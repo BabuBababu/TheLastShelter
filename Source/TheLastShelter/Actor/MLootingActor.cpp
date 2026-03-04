@@ -29,15 +29,15 @@ void AMLootingActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!LootingObjectID.IsEmpty())
+	if (LootingObjectId > 0)
 	{
-		InitializeFromData(LootingObjectID);
+		InitializeFromData(LootingObjectId);
 	}
 }
 
-void AMLootingActor::InitializeFromData(const FString& InLootingID)
+void AMLootingActor::InitializeFromData(int32 InLootingId)
 {
-	LootingObjectID = InLootingID;
+	LootingObjectId = InLootingId;
 
 	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
 	if (!GI) return;
@@ -45,7 +45,7 @@ void AMLootingActor::InitializeFromData(const FString& InLootingID)
 	UMDataManager* DataMgr = GI->GetSubsystem<UMDataManager>();
 	if (!DataMgr) return;
 
-	if (DataMgr->GetLootingObjectDataByID(LootingObjectID, CachedLootingData))
+	if (DataMgr->GetLootingObjectDataByID(LootingObjectId, CachedLootingData))
 	{
 		// TODO: SpritePath로 UPaperSprite 동적 로드
 		UE_LOG(LogTemp, Log, TEXT("[LootingActor] Initialized: %s"), *CachedLootingData.Name);
@@ -57,8 +57,8 @@ void AMLootingActor::OnInteract()
 	UWorld* World = GetWorld();
 	if (!World) return;
 
-	// 등록된 아이템 ID들로 MItemActor 스폰
-	for (const FString& SpawnItemID : CachedLootingData.SpawnItemIDs)
+	// 등록된 아이템 Id들로 MItemActor 스폰
+	for (int32 SpawnItemId : CachedLootingData.SpawnItemIds)
 	{
 		if (ItemActorClass)
 		{
@@ -72,12 +72,12 @@ void AMLootingActor::OnInteract()
 
 			if (SpawnedItem)
 			{
-				SpawnedItem->InitializeFromData(SpawnItemID, 1);
+				SpawnedItem->InitializeFromData(SpawnItemId, 1);
 			}
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[LootingActor] ItemActorClass not set. Cannot spawn item: %s"), *SpawnItemID);
+			UE_LOG(LogTemp, Warning, TEXT("[LootingActor] ItemActorClass not set. Cannot spawn item Id: %d"), SpawnItemId);
 		}
 	}
 

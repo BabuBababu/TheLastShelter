@@ -25,18 +25,18 @@ void UMShelterInventoryManager::Deinitialize()
 // 아이템 추가
 // ============================================================
 
-int32 UMShelterInventoryManager::AddItem(const FString& ItemID, int32 Count)
+int32 UMShelterInventoryManager::AddItem(int32 ItemId, int32 Count)
 {
-	if (Count <= 0 || ItemID.IsEmpty()) return Count;
+	if (Count <= 0 || ItemId <= 0) return Count;
 
-	const int32 maxStack = GetMaxStack(ItemID);
+	const int32 maxStack = GetMaxStack(ItemId);
 	int32 remaining = Count;
 
 	// 1) 기존 슬롯에 스택 가능한 곳 우선
 	for (FMInventorySlot& slot : Slots)
 	{
 		if (remaining <= 0) break;
-		if (slot.ItemID == ItemID && slot.Count < maxStack)
+		if (slot.ItemId == ItemId && slot.Count < maxStack)
 		{
 			int32 canAdd = FMath::Min(remaining, maxStack - slot.Count);
 			slot.Count += canAdd;
@@ -50,7 +50,7 @@ int32 UMShelterInventoryManager::AddItem(const FString& ItemID, int32 Count)
 		if (remaining <= 0) break;
 		if (slot.IsEmpty())
 		{
-			slot.ItemID = ItemID;
+			slot.ItemId = ItemId;
 			int32 canAdd = FMath::Min(remaining, maxStack);
 			slot.Count = canAdd;
 			remaining -= canAdd;
@@ -69,16 +69,16 @@ int32 UMShelterInventoryManager::AddItem(const FString& ItemID, int32 Count)
 // 아이템 제거
 // ============================================================
 
-int32 UMShelterInventoryManager::RemoveItem(const FString& ItemID, int32 Count)
+int32 UMShelterInventoryManager::RemoveItem(int32 ItemId, int32 Count)
 {
-	if (Count <= 0 || ItemID.IsEmpty()) return 0;
+	if (Count <= 0 || ItemId <= 0) return 0;
 
 	int32 removed = 0;
 
 	for (FMInventorySlot& slot : Slots)
 	{
 		if (removed >= Count) break;
-		if (slot.ItemID == ItemID)
+		if (slot.ItemId == ItemId)
 		{
 			int32 toRemove = FMath::Min(Count - removed, slot.Count);
 			slot.Count -= toRemove;
@@ -86,7 +86,7 @@ int32 UMShelterInventoryManager::RemoveItem(const FString& ItemID, int32 Count)
 
 			if (slot.Count <= 0)
 			{
-				slot.ItemID.Empty();
+				slot.ItemId = 0;
 				slot.Count = 0;
 			}
 		}
@@ -104,12 +104,12 @@ int32 UMShelterInventoryManager::RemoveItem(const FString& ItemID, int32 Count)
 // 조회
 // ============================================================
 
-int32 UMShelterInventoryManager::GetItemCount(const FString& ItemID) const
+int32 UMShelterInventoryManager::GetItemCount(int32 ItemId) const
 {
 	int32 total = 0;
 	for (const FMInventorySlot& slot : Slots)
 	{
-		if (slot.ItemID == ItemID)
+		if (slot.ItemId == ItemId)
 		{
 			total += slot.Count;
 		}
@@ -124,7 +124,7 @@ TArray<FMInventorySlot> UMShelterInventoryManager::GetSlotsByCategory(EMShelterS
 	for (const FMInventorySlot& slot : Slots)
 	{
 		if (slot.IsEmpty()) continue;
-		if (GetItemCategory(slot.ItemID) == Category)
+		if (GetItemCategory(slot.ItemId) == Category)
 		{
 			result.Add(slot);
 		}
@@ -159,7 +159,7 @@ float UMShelterInventoryManager::CalculateTotalValue() const
 		if (slot.IsEmpty()) continue;
 
 		FMItemData itemData;
-		if (dataMgr->GetItemDataByID(slot.ItemID, itemData))
+		if (dataMgr->GetItemDataByID(slot.ItemId, itemData))
 		{
 			totalValue += itemData.Value * slot.Count;
 		}
@@ -180,7 +180,7 @@ float UMShelterInventoryManager::CalculateValueByCategory(EMShelterStorageCatego
 		if (slot.IsEmpty()) continue;
 
 		FMItemData itemData;
-		if (dataMgr->GetItemDataByID(slot.ItemID, itemData))
+		if (dataMgr->GetItemDataByID(slot.ItemId, itemData))
 		{
 			if (MapItemTypeToCategory(itemData.ItemType) == Category)
 			{
@@ -239,13 +239,13 @@ void UMShelterInventoryManager::SetCapacity(int32 NewSlotCount)
 // 내부 헬퍼
 // ============================================================
 
-int32 UMShelterInventoryManager::GetMaxStack(const FString& ItemID) const
+int32 UMShelterInventoryManager::GetMaxStack(int32 ItemId) const
 {
 	UMDataManager* dataMgr = GetGameInstance()->GetSubsystem<UMDataManager>();
 	if (dataMgr)
 	{
 		FMItemData itemData;
-		if (dataMgr->GetItemDataByID(ItemID, itemData))
+		if (dataMgr->GetItemDataByID(ItemId, itemData))
 		{
 			return FMath::Max(1, itemData.MaxStack);
 		}
@@ -267,13 +267,13 @@ EMShelterStorageCategory UMShelterInventoryManager::MapItemTypeToCategory(EMItem
 	}
 }
 
-EMShelterStorageCategory UMShelterInventoryManager::GetItemCategory(const FString& ItemID) const
+EMShelterStorageCategory UMShelterInventoryManager::GetItemCategory(int32 ItemId) const
 {
 	UMDataManager* dataMgr = GetGameInstance()->GetSubsystem<UMDataManager>();
 	if (dataMgr)
 	{
 		FMItemData itemData;
-		if (dataMgr->GetItemDataByID(ItemID, itemData))
+		if (dataMgr->GetItemDataByID(ItemId, itemData))
 		{
 			return MapItemTypeToCategory(itemData.ItemType);
 		}

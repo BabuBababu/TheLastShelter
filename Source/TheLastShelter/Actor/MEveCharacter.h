@@ -34,7 +34,7 @@ protected:
 public:
 	// ---- 데이터 초기화 ----
 	UFUNCTION(BlueprintCallable, Category = "Eve")
-	void InitializeFromData(const FString& EveID);
+	void InitializeFromData(int32 EveId);
 
 	// ============================================================
 	// 컴포넌트
@@ -115,7 +115,7 @@ public:
 	// ============================================================
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Data")
-	FString EveDataID;
+	int32 EveDataId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Data")
 	FString EveName;
@@ -130,7 +130,7 @@ public:
 	TArray<EMHiddenStatType> HiddenStats;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Stat")
-	TArray<FString> SkillIDs;
+	TArray<int32> SkillIDs;
 
 	// ---- 감정 ----
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve|Emotion")

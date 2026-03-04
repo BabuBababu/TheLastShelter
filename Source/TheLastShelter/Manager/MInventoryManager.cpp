@@ -39,7 +39,7 @@ void UMInventoryManager::RemoveInventory(const FString& OwnerID)
 	}
 }
 
-int32 UMInventoryManager::AddItem(const FString& OwnerID, const FString& ItemID, int32 Count)
+int32 UMInventoryManager::AddItem(const FString& OwnerID, int32 ItemId, int32 Count)
 {
 	TArray<FMInventorySlot>* Inventory = InventoryMap.Find(OwnerID);
 	if (!Inventory)
@@ -48,14 +48,14 @@ int32 UMInventoryManager::AddItem(const FString& OwnerID, const FString& ItemID,
 		return Count;
 	}
 
-	const int32 MaxStack = GetMaxStack(ItemID);
+	const int32 MaxStack = GetMaxStack(ItemId);
 	int32 Remaining = Count;
 
 	// 1) 기존 슬롯에 스택 가능한 곳 우선 채우기
 	for (FMInventorySlot& Slot : *Inventory)
 	{
 		if (Remaining <= 0) break;
-		if (Slot.ItemID == ItemID && Slot.Count < MaxStack)
+		if (Slot.ItemId == ItemId && Slot.Count < MaxStack)
 		{
 			const int32 CanAdd = FMath::Min(Remaining, MaxStack - Slot.Count);
 			Slot.Count += CanAdd;
@@ -69,7 +69,7 @@ int32 UMInventoryManager::AddItem(const FString& OwnerID, const FString& ItemID,
 		if (Remaining <= 0) break;
 		if (Slot.IsEmpty())
 		{
-			Slot.ItemID = ItemID;
+			Slot.ItemId = ItemId;
 			const int32 CanAdd = FMath::Min(Remaining, MaxStack);
 			Slot.Count = CanAdd;
 			Remaining -= CanAdd;
@@ -79,7 +79,7 @@ int32 UMInventoryManager::AddItem(const FString& OwnerID, const FString& ItemID,
 	return Remaining; // 0이면 전량 추가 성공
 }
 
-int32 UMInventoryManager::RemoveItem(const FString& OwnerID, const FString& ItemID, int32 Count)
+int32 UMInventoryManager::RemoveItem(const FString& OwnerID, int32 ItemId, int32 Count)
 {
 	TArray<FMInventorySlot>* Inventory = InventoryMap.Find(OwnerID);
 	if (!Inventory) return 0;
@@ -89,7 +89,7 @@ int32 UMInventoryManager::RemoveItem(const FString& OwnerID, const FString& Item
 	for (FMInventorySlot& Slot : *Inventory)
 	{
 		if (Removed >= Count) break;
-		if (Slot.ItemID == ItemID)
+		if (Slot.ItemId == ItemId)
 		{
 			const int32 ToRemove = FMath::Min(Count - Removed, Slot.Count);
 			Slot.Count -= ToRemove;
@@ -97,7 +97,7 @@ int32 UMInventoryManager::RemoveItem(const FString& OwnerID, const FString& Item
 
 			if (Slot.Count <= 0)
 			{
-				Slot.ItemID.Empty();
+				Slot.ItemId = 0;
 				Slot.Count = 0;
 			}
 		}
@@ -106,7 +106,7 @@ int32 UMInventoryManager::RemoveItem(const FString& OwnerID, const FString& Item
 	return Removed;
 }
 
-int32 UMInventoryManager::GetItemCount(const FString& OwnerID, const FString& ItemID) const
+int32 UMInventoryManager::GetItemCount(const FString& OwnerID, int32 ItemId) const
 {
 	const TArray<FMInventorySlot>* Inventory = InventoryMap.Find(OwnerID);
 	if (!Inventory) return 0;
@@ -114,7 +114,7 @@ int32 UMInventoryManager::GetItemCount(const FString& OwnerID, const FString& It
 	int32 Total = 0;
 	for (const FMInventorySlot& Slot : *Inventory)
 	{
-		if (Slot.ItemID == ItemID)
+		if (Slot.ItemId == ItemId)
 			Total += Slot.Count;
 	}
 	return Total;
@@ -145,13 +145,13 @@ int32 UMInventoryManager::GetEmptySlotCount(const FString& OwnerID) const
 	return EmptyCount;
 }
 
-int32 UMInventoryManager::GetMaxStack(const FString& ItemID) const
+int32 UMInventoryManager::GetMaxStack(int32 ItemId) const
 {
 	UMDataManager* DataMgr = GetGameInstance()->GetSubsystem<UMDataManager>();
 	if (DataMgr)
 	{
 		FMItemData ItemData;
-		if (DataMgr->GetItemDataByID(ItemID, ItemData))
+		if (DataMgr->GetItemDataByID(ItemId, ItemData))
 		{
 			return FMath::Max(1, ItemData.MaxStack);
 		}

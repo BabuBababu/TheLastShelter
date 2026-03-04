@@ -217,9 +217,9 @@ void UMSpawnManager::SpawnWave()
 		ordo->SetActorLocation(spawnLoc);
 
 		// 데이터 초기화
-		if (!spawnRow->OrdoDataID.IsEmpty())
+		if (spawnRow->OrdoDataId > 0)
 		{
-			ordo->InitializeFromData(spawnRow->OrdoDataID);
+			ordo->InitializeFromData(spawnRow->OrdoDataId);
 		}
 
 		// StatComponent 연동

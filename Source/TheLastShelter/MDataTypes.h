@@ -210,6 +210,24 @@ enum class EMHiddenStatType : uint8
 };
 
 // ============================================================
+// Game Data Row Base
+// ============================================================
+
+/**
+ * 모든 게임 데이터 구조체의 기반.
+ * xlsx에서 고유 int32 ID(Id)를 부여하며, TMap<int32, FMXxxData> 형태로 관리됩니다.
+ */
+USTRUCT(BlueprintType)
+struct FMGameDataRowBase
+{
+	GENERATED_BODY()
+
+	/** Game Data ID — xlsx 첫 번째 열의 고유 정수 ID */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameData")
+	int32 Id = 0;
+};
+
+// ============================================================
 // Stat Structs
 // ============================================================
 
@@ -305,12 +323,9 @@ struct FMMentalStat
 
 /** Eve 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMEveData
+struct FMEveData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve")
 	FString Name;
@@ -328,7 +343,7 @@ struct FMEveData
 	TArray<EMHiddenStatType> HiddenStats;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve")
-	TArray<FString> SkillIDs;
+	TArray<int32> SkillIDs;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Eve")
 	FString SpritePath;
@@ -336,12 +351,9 @@ struct FMEveData
 
 /** Ordo 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMOrdoData
+struct FMOrdoData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo")
 	FString Name;
@@ -353,10 +365,10 @@ struct FMOrdoData
 	FMPhysicalStat PhysicalStat;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo")
-	TArray<FString> SkillIDs;
+	TArray<int32> SkillIDs;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo")
-	FString DropTableID;
+	int32 DropTableID = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo")
 	FString SpritePath;
@@ -364,12 +376,9 @@ struct FMOrdoData
 
 /** Primal 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMPrimalData
+struct FMPrimalData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Primal")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Primal")
 	FString Name;
@@ -378,7 +387,7 @@ struct FMPrimalData
 	EMPrimalType PrimalType = EMPrimalType::Animal;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Primal")
-	FString DropTableID;
+	int32 DropTableID = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Primal")
 	FString SpritePath;
@@ -386,12 +395,9 @@ struct FMPrimalData
 
 /** Item 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMItemData
+struct FMItemData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
 	FString Name;
@@ -429,12 +435,9 @@ struct FMItemData
 
 /** Stat 테이블 데이터 (스탯 종류 정의) */
 USTRUCT(BlueprintType)
-struct FMStatDefinition
+struct FMStatDefinition : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
 	FString Name;
@@ -448,12 +451,9 @@ struct FMStatDefinition
 
 /** HiddenStat 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMHiddenStatData
+struct FMHiddenStatData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HiddenStat")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HiddenStat")
 	EMHiddenStatType Type = EMHiddenStatType::None;
@@ -471,12 +471,9 @@ struct FMHiddenStatData
 
 /** Skill 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMSkillData
+struct FMSkillData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill")
 	FString Name;
@@ -501,7 +498,7 @@ struct FMDropItemEntry
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drop")
-	FString ItemID;
+	int32 ItemId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drop")
 	float DropRate = 1.f;
@@ -514,12 +511,9 @@ struct FMDropItemEntry
 };
 
 USTRUCT(BlueprintType)
-struct FMDropTableData
+struct FMDropTableData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drop")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Drop")
 	TArray<FMDropItemEntry> Entries;
@@ -527,12 +521,9 @@ struct FMDropTableData
 
 /** Event 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMEventData
+struct FMEventData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Event")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Event")
 	EMEventType EventType = EMEventType::RestVisit;
@@ -546,12 +537,9 @@ struct FMEventData
 
 /** SpecialEvent 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMSpecialEventData
+struct FMSpecialEventData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpecialEvent")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpecialEvent")
 	FString Title;
@@ -563,15 +551,12 @@ struct FMSpecialEventData
 
 /** EveDialog 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMEveDialogData
+struct FMEveDialogData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
-	FString ID;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
-	FString EveID;
+	int32 EveId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
 	EMEmotion Emotion = EMEmotion::Normal;
@@ -585,15 +570,12 @@ struct FMEveDialogData
 
 /** OrdoDialog 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMOrdoDialogData
+struct FMOrdoDialogData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
-	FString ID;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
-	FString OrdoID;
+	int32 OrdoId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
 	FString DialogText;
@@ -601,12 +583,9 @@ struct FMOrdoDialogData
 
 /** PlayerDialog 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMPlayerDialogData
+struct FMPlayerDialogData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
-	FString ID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
 	EMEventType EventCondition = EMEventType::RestVisit;
@@ -617,19 +596,16 @@ struct FMPlayerDialogData
 
 /** LootingObject 테이블 데이터 */
 USTRUCT(BlueprintType)
-struct FMLootingObjectData
+struct FMLootingObjectData : public FMGameDataRowBase
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Looting")
-	FString ID;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Looting")
 	FString Name;
 
-	/** 루팅 시 스폰할 아이템 ID 목록 */
+	/** 루팅 시 스폰할 아이템 Id 목록 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Looting")
-	TArray<FString> SpawnItemIDs;
+	TArray<int32> SpawnItemIds;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Looting")
 	FString SpritePath;
@@ -646,12 +622,12 @@ struct FMInventorySlot
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
-	FString ItemID;
+	int32 ItemId = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	int32 Count = 0;
 
-	bool IsEmpty() const { return ItemID.IsEmpty() || Count <= 0; }
+	bool IsEmpty() const { return ItemId <= 0 || Count <= 0; }
 };
 
 // ============================================================
@@ -686,9 +662,9 @@ struct FMOrdoSpawnRow : public FTableRowBase
 {
 	GENERATED_BODY()
 
-	/** MDataManager의 OrdoData ID (JSON 기반 스탯 초기화용) */
+	/** MDataManager의 OrdoData Id (JSON 기반 스탯 초기화용) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
-	FString OrdoDataID;
+	int32 OrdoDataId = 0;
 
 	/** 스폰할 Ordo 블루프린트 클래스 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
