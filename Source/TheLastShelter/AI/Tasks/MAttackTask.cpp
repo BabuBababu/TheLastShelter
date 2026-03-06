@@ -4,6 +4,7 @@
 #include "MAIControllerBase.h"
 #include "MEveCharacter.h"
 #include "MOrdoCharacter.h"
+#include "MLogManager.h"
 #include "PaperFlipbookComponent.h"
 #include "Engine/Engine.h"
 
@@ -87,6 +88,35 @@ void UMAttackTask::TransitionTo(ECombatPhase NewPhase)
 	PhaseStartTime = GetWorldTime();
 
 	const FString ownerName = GetOwnerEve() ? TEXT("Eve") : TEXT("Ordo");
+	AActor* ownerPawn = GetOwnerEve() ? (AActor*)GetOwnerEve() : (AActor*)GetOwnerOrdo();
+
+	// CombatLog
+	if (ownerPawn)
+	{
+		if (UGameInstance* GI = ownerPawn->GetGameInstance())
+		{
+			if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+			{
+				auto PhaseName = [](ECombatPhase p) -> const TCHAR*
+				{
+					switch (p)
+					{
+					case ECombatPhase::Approaching:  return TEXT("Approaching");
+					case ECombatPhase::CombatEnter:  return TEXT("CombatEnter");
+					case ECombatPhase::CombatLoop:   return TEXT("CombatLoop");
+					case ECombatPhase::CombatExit:   return TEXT("CombatExit");
+					default: return TEXT("Unknown");
+					}
+				};
+
+				AActor* curTarget = TargetActor.Get();
+				logMgr->Logf(TEXT("AI"), TEXT("%s Phase: %s → %s | Target=%s"),
+					*UMLogManager::ActorID(ownerPawn),
+					PhaseName(OldPhase), PhaseName(NewPhase),
+					*UMLogManager::ActorID(curTarget));
+			}
+		}
+	}
 
 	if (GEngine)
 	{
@@ -361,6 +391,21 @@ void UMAttackTask::FaceToTarget(AActor* Target)
 
 void UMAttackTask::PerformAttack(AActor* Target)
 {
+	// CombatLog
+	AActor* ownerPawn = GetOwnerEve() ? (AActor*)GetOwnerEve() : (AActor*)GetOwnerOrdo();
+	if (ownerPawn)
+	{
+		if (UGameInstance* GI = ownerPawn->GetGameInstance())
+		{
+			if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+			{
+				logMgr->Logf(TEXT("AI"), TEXT("%s PerformAttack → %s"),
+					*UMLogManager::ActorID(ownerPawn),
+					*UMLogManager::ActorID(Target));
+			}
+		}
+	}
+
 	if (AMEveCharacter* eve = GetOwnerEve())
 		eve->PerformAttack(Target);
 	else if (AMOrdoCharacter* ordo = GetOwnerOrdo())

@@ -3,6 +3,7 @@
 #include "MSpawnManager.h"
 #include "MShelterValueManager.h"
 #include "MDataManager.h"
+#include "MLogManager.h"
 #include "MOrdoCharacter.h"
 #include "MStatComponent.h"
 #include "Engine/DataTable.h"
@@ -230,6 +231,15 @@ void UMSpawnManager::SpawnWave()
 		}
 
 		ActiveOrdos.Add(ordo);
+
+		// CombatLog
+		if (UMLogManager* logMgr = GetGameInstance()->GetSubsystem<UMLogManager>())
+		{
+			logMgr->Logf(TEXT("Spawn"), TEXT("Ordo spawned: %s at (%.0f,%.0f,%.0f) | Wave=%d DataId=%d"),
+				*UMLogManager::ActorID(ordo),
+				spawnLoc.X, spawnLoc.Y, spawnLoc.Z,
+				CurrentWaveIndex, spawnRow->OrdoDataId);
+		}
 	}
 }
 
@@ -273,6 +283,13 @@ void UMSpawnManager::OnOrdoDeath()
 
 			UE_LOG(LogTemp, Log, TEXT("[SpawnManager] Ordo '%s' 사망 → %.1f초 후 풀 회수"),
 				*ordo->GetName(), DespawnDelay);
+
+			// CombatLog
+			if (UMLogManager* logMgr = GetGameInstance()->GetSubsystem<UMLogManager>())
+			{
+				logMgr->Logf(TEXT("Spawn"), TEXT("Ordo DEATH: %s → collision off, pool return in %.1fs"),
+					*UMLogManager::ActorID(ordo), DespawnDelay);
+			}
 		}
 	}
 }
@@ -340,6 +357,13 @@ AMOrdoCharacter* UMSpawnManager::AcquireFromPool(TSubclassOf<AMOrdoCharacter> Or
 void UMSpawnManager::ReturnToPool(AMOrdoCharacter* Ordo)
 {
 	if (!Ordo) return;
+
+	// CombatLog
+	if (UMLogManager* logMgr = GetGameInstance()->GetSubsystem<UMLogManager>())
+	{
+		logMgr->Logf(TEXT("Spawn"), TEXT("Ordo ReturnToPool: %s (Hidden=%d)"),
+			*UMLogManager::ActorID(Ordo), Ordo->IsHidden());
+	}
 
 	Ordo->SetActorHiddenInGame(true);
 	Ordo->SetActorEnableCollision(false);

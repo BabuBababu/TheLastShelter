@@ -5,6 +5,7 @@
 #include "MDataManager.h"
 #include "MInventoryManager.h"
 #include "MProjectileManager.h"
+#include "MLogManager.h"
 #include "MOrdoCharacter.h"
 #include "MEveAIController.h"
 #include "Kismet/GameplayStatics.h"
@@ -220,6 +221,16 @@ void AMEveCharacter::PerformAttack(AActor* Target)
 		IsDead(), Target ? *Target->GetName() : TEXT("null"), IsPlayingActionAnim);
 
 	if (IsDead() || !Target || IsPlayingActionAnim) return;
+
+	// CombatLog
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+		{
+			logMgr->Logf(TEXT("Eve"), TEXT("%s PerformAttack → Target=%s"),
+				*UMLogManager::ActorID(this), *UMLogManager::ActorID(Target));
+		}
+	}
 
 	// CombatLoop 상태 + FaceTarget으로 방향 처리되므로 별도 애니메이션 상태 전환 없음
 

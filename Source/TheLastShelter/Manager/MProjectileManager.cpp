@@ -6,6 +6,7 @@
 #include "Actor/MOrdoCharacter.h"
 #include "Actor/MPlayerCharacter.h"
 #include "ActorComponent/MStatComponent.h"
+#include "Manager/MLogManager.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -132,6 +133,16 @@ void UMProjectileManager::FireBullet(AActor* Instigator, AActor* Target, FVector
 
 	UE_LOG(LogTemp, Log, TEXT("[ProjectileManager] %s (%d) → %s | dmg=%.1f acc=%.0f%%"),
 		*Instigator->GetName(), (int32)weaponClass, *Target->GetName(), damage, accuracy);
+
+	// CombatLog
+	if (UMLogManager* logMgr = GetGameInstance()->GetSubsystem<UMLogManager>())
+	{
+		logMgr->Logf(TEXT("Projectile"), TEXT("FireBullet: %s → %s | bullet=%s dmg=%.1f acc=%.0f%% weapon=%d"),
+			*UMLogManager::ActorID(Instigator),
+			*UMLogManager::ActorID(Target),
+			*UMLogManager::ActorID(bullet),
+			damage, accuracy, (int32)weaponClass);
+	}
 }
 
 // ============================================================

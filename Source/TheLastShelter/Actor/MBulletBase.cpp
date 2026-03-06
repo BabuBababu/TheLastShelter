@@ -11,6 +11,8 @@
 #include "Actor/MEveCharacter.h"
 #include "Actor/MOrdoCharacter.h"
 #include "ActorComponent/MStatComponent.h"
+#include "Manager/MLogManager.h"
+#include "Kismet/GameplayStatics.h"
 
 AMBulletBase::AMBulletBase()
 {
@@ -19,11 +21,12 @@ AMBulletBase::AMBulletBase()
 	// --- Collision ---
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComp"));
 	CollisionComp->InitSphereRadius(8.f);
-	CollisionComp->SetCollisionProfileName(TEXT("Projectile"));
-	CollisionComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	CollisionComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CollisionComp->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionComp->SetCollisionResponseToAllChannels(ECR_Ignore);
 	CollisionComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 	CollisionComp->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+	// WorldDynamic (다른 총알) 은 Ignore 유지 → 총알끼리 충돌 없음
 	CollisionComp->OnComponentHit.AddDynamic(this, &AMBulletBase::OnHit);
 	SetRootComponent(CollisionComp);
 
@@ -83,10 +86,27 @@ void AMBulletBase::Fire(const FVector& StartLocation, const FVector& TargetLocat
 	CurrentWeaponClass = InWeaponClass;
 	bPoolActive = true;
 
-	// ★ 발사자와의 충돌을 물리 레벨에서 완전 무시
+	// ★ 발사자 및 같은 편 아군과의 충돌을 물리 레벨에서 완전 무시
+	// TODO: 나중에 최종 소유(Owner) 체크로 전환 — Eve/Player 소유 판별
 	if (InBulletInstigator)
 	{
 		CollisionComp->IgnoreActorWhenMoving(InBulletInstigator, true);
+
+		// 같은 편 아군 전부 무시
+		TArray<AActor*> allies;
+		if (InBulletInstigator->IsA<AMEveCharacter>())
+		{
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), AMEveCharacter::StaticClass(), allies);
+		}
+		else if (InBulletInstigator->IsA<AMOrdoCharacter>())
+		{
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), AMOrdoCharacter::StaticClass(), allies);
+		}
+
+		for (AActor* ally : allies)
+		{
+			CollisionComp->IgnoreActorWhenMoving(ally, true);
+		}
 	}
 
 	SetActorLocation(StartLocation);
@@ -152,6 +172,18 @@ void AMBulletBase::Fire(const FVector& StartLocation, const FVector& TargetLocat
 	UE_LOG(LogTemp, Log, TEXT("[Bullet] Fire from %s | 병과=%d dir(%.1f,%.1f) dmg=%.1f"),
 		InBulletInstigator ? *InBulletInstigator->GetName() : TEXT("?"),
 		(int32)InWeaponClass, direction.X, direction.Y, InDamage);
+
+	// CombatLog
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+		{
+			logMgr->Logf(TEXT("Bullet"), TEXT("%s Fire from=%s dir=(%.2f,%.2f) dmg=%.1f weapon=%d"),
+				*UMLogManager::ActorID(this),
+				*UMLogManager::ActorID(InBulletInstigator),
+				direction.X, direction.Y, InDamage, (int32)InWeaponClass);
+		}
+	}
 }
 
 void AMBulletBase::Deactivate()
@@ -159,11 +191,8 @@ void AMBulletBase::Deactivate()
 	bPoolActive = false;
 	Damage = 0.f;
 
-	// 발사자 무시 목록 초기화
-	if (BulletInstigator.IsValid())
-	{
-		CollisionComp->IgnoreActorWhenMoving(BulletInstigator.Get(), false);
-	}
+	// 무시 목록 일괄 초기화 (발사자 + 아군 전부)
+	CollisionComp->ClearMoveIgnoreActors();
 	BulletInstigator.Reset();
 
 	SetActorHiddenInGame(true);
@@ -203,10 +232,27 @@ void AMBulletBase::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 	if (!bPoolActive) return;
 
+	// 총알끼리 충돌 무시
+	if (OtherActor && OtherActor->IsA<AMBulletBase>()) return;
+
 	// 발사자 자신에게 맞으면 무시
 	if (OtherActor == BulletInstigator.Get()) return;
 
-	// 아군 판별
+	// ★ [Fix Layer 3] 죽은 타겟은 무시 (안전망 — Layer 1에서 충돌 비활성화되므로 여기 도달 희박)
+	if (OtherActor)
+	{
+		if (const AMOrdoCharacter* ordo = Cast<AMOrdoCharacter>(OtherActor))
+		{
+			if (ordo->IsDead()) return;
+		}
+		if (const AMEveCharacter* eve = Cast<AMEveCharacter>(OtherActor))
+		{
+			if (eve->IsDead()) return;
+		}
+	}
+
+	// 아군 판별 (안전망 — Fire()에서 이미 물리 레벨 무시 처리됨)
+	// TODO: 나중에 최종 소유(Owner) 기반 판별로 교체
 	if (BulletInstigator.IsValid() && OtherActor)
 	{
 		bool instigatorIsEve  = BulletInstigator->IsA<AMEveCharacter>();
@@ -235,12 +281,27 @@ void AMBulletBase::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 			UE_LOG(LogTemp, Log, TEXT("[Bullet] Hit Ordo '%s' for %.1f damage"),
 				*ordo->GetName(), Damage);
 		}
+
+		// CombatLog
+		if (UGameInstance* GI = GetGameInstance())
+		{
+			if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+			{
+				logMgr->Logf(TEXT("Bullet"), TEXT("%s Hit %s for %.1f dmg (instigator=%s)"),
+					*UMLogManager::ActorID(this),
+					*UMLogManager::ActorID(OtherActor),
+					Damage,
+					*UMLogManager::ActorID(BulletInstigator.Get()));
+			}
+		}
 	}
 
 	// 비행 관련 즉시 정지 (bPoolActive는 유지 — 임팩트 중 풀 재할당 방지)
 	ProjectileMovement->StopMovementImmediately();
 	ProjectileMovement->Deactivate();
 	SetActorEnableCollision(false);
+	// ★ SetActorHiddenInGame(true) 제거 — Actor 전체를 숨기면 ImpactVFXComp도 렌더링 안 됨
+	// 대신 FlipbookComp만 개별 숨김 (총알 스프라이트)
 	FlipbookComp->Stop();
 	FlipbookComp->SetHiddenInGame(true, true);
 	TrailVFXComp->Deactivate();
@@ -271,6 +332,17 @@ void AMBulletBase::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 void AMBulletBase::OnImpactVFXFinished(UNiagaraComponent* FinishedComp)
 {
 	UE_LOG(LogTemp, Log, TEXT("[Bullet] Impact VFX finished (delegate) — deactivating"));
+
+	// CombatLog
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+		{
+			logMgr->Logf(TEXT("Bullet"), TEXT("%s ImpactVFX finished → Deactivate"),
+				*UMLogManager::ActorID(this));
+		}
+	}
+
 	bWaitingForImpact = false;
 	ImpactVFXComp->OnSystemFinished.RemoveAll(this);
 	Deactivate();

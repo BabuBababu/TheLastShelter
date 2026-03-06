@@ -3,6 +3,9 @@
 #include "MAIControllerBase.h"
 #include "MAITaskComponent.h"
 #include "MBaseTask.h"
+#include "MLogManager.h"
+#include "MOrdoCharacter.h"
+#include "MEveCharacter.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 
@@ -104,12 +107,26 @@ AActor* AMAIControllerBase::ResolveAttackTarget() const
 
 void AMAIControllerBase::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActors)
 {
+	APawn* myPawn = GetPawn();
+	if (!myPawn) return;  // UnPossess 후 Perception 이벤트가 지연 도착할 수 있음
+
 	float minDist = MAX_FLT;
 	AActor* nearest = nullptr;
 
 	for (AActor* actor : UpdatedActors)
 	{
-		if (!actor || actor == GetPawn()) continue;
+		if (!actor || !IsValid(actor) || actor->IsActorBeingDestroyed()) continue;
+		if (actor == myPawn) continue;
+
+		// ★ [Fix Layer 2] 죽은 액터는 감지 대상에서 제외
+		if (const AMOrdoCharacter* ordo = Cast<AMOrdoCharacter>(actor))
+		{
+			if (ordo->IsDead()) continue;
+		}
+		if (const AMEveCharacter* eve = Cast<AMEveCharacter>(actor))
+		{
+			if (eve->IsDead()) continue;
+		}
 
 		FActorPerceptionBlueprintInfo info;
 		AIPerceptionComp->GetActorsPerception(actor, info);
@@ -126,7 +143,7 @@ void AMAIControllerBase::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActor
 
 		if (currentlySensed)
 		{
-			const float dist = FVector::Dist(GetPawn()->GetActorLocation(), actor->GetActorLocation());
+			const float dist = FVector::Dist(myPawn->GetActorLocation(), actor->GetActorLocation());
 			if (dist < minDist)
 			{
 				minDist = dist;
@@ -136,6 +153,20 @@ void AMAIControllerBase::OnPerceptionUpdated(const TArray<AActor*>& UpdatedActor
 	}
 
 	DetectedTarget = nearest;
+
+	// CombatLog
+	if (nearest && myPawn)
+	{
+		if (UGameInstance* GI = myPawn->GetGameInstance())
+		{
+			if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+			{
+				logMgr->Logf(TEXT("AI"), TEXT("%s Perception → DetectedTarget=%s (dist=%.0f)"),
+					*UMLogManager::ActorID(myPawn),
+					*UMLogManager::ActorID(nearest), minDist);
+			}
+		}
+	}
 }
 
 // ---- 태스크 편의 API ----

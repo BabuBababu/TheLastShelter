@@ -4,8 +4,11 @@
 #include "MStatComponent.h"
 #include "MDataManager.h"
 #include "MProjectileManager.h"
+#include "MLogManager.h"
 #include "MEveCharacter.h"
 #include "MOrdoAIController.h"
+#include "AIController.h"
+#include "BrainComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "PaperFlipbookComponent.h"
@@ -138,8 +141,35 @@ void AMOrdoCharacter::TakeDamageFromPlayer(float Damage, AActor* Attacker)
 	UE_LOG(LogTemp, Log, TEXT("[Ordo] %s took %.1f damage (%.1f HP left)"),
 		*OrdoName, actualDamage, StatComp->GetCurrentHealth());
 
+	// CombatLog
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+		{
+			logMgr->Logf(TEXT("Ordo"), TEXT("%s TakeDamage=%.1f (actual=%.1f) from %s | HP=%.1f/%s"),
+				*UMLogManager::ActorID(this), Damage, actualDamage,
+				*UMLogManager::ActorID(Attacker),
+				StatComp->GetCurrentHealth(),
+				StatComp->IsDead() ? TEXT("DEAD") : TEXT("alive"));
+		}
+	}
+
 	if (StatComp->IsDead())
 	{
+		// ★ [Fix Layer 1] 즉시 충돌 비활성화 — 총알이 시체에 맞지 않도록
+		SetActorEnableCollision(false);
+
+		// ★ AI 컨트롤러 정지 — 죽은 Ordo가 행동하지 않도록
+		if (AController* ctrl = GetController())
+		{
+			if (AAIController* aiCtrl = Cast<AAIController>(ctrl))
+			{
+				aiCtrl->StopMovement();
+				aiCtrl->BrainComponent ? aiCtrl->BrainComponent->StopLogic(TEXT("Dead")) : void(0);
+			}
+			ctrl->UnPossess();
+		}
+
 		IsPlayingActionAnim = true;
 		ActionAnimEndTime = GetWorld()->GetTimeSeconds() + 99999.f;
 
@@ -198,6 +228,16 @@ void AMOrdoCharacter::OnDownAnimFinished()
 
 	SetActorHiddenInGame(true);
 	UE_LOG(LogTemp, Log, TEXT("[Ordo] %s Down 애니메이션 완료 → Hidden"), *OrdoName);
+
+	// CombatLog
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (UMLogManager* logMgr = GI->GetSubsystem<UMLogManager>())
+		{
+			logMgr->Logf(TEXT("Ordo"), TEXT("%s DownAnim finished → Hidden"),
+				*UMLogManager::ActorID(this));
+		}
+	}
 }
 
 void AMOrdoCharacter::SpawnDropItems()
