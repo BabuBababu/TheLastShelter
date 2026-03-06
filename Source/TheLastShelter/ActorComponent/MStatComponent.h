@@ -102,6 +102,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Stat")
 	float GetAttackPower() const { return GetEffectiveStat().Attack; }
 
+	/** 공격 간격(초) = 1 / AttackSpeed. AttackSpeed 0이면 최소 10초 간격 */
+	UFUNCTION(BlueprintPure, Category = "Stat")
+	float GetAttackRate() const { return 1.f / FMath::Max(GetEffectiveStat().AttackSpeed, 0.1f); }
+
 	// ============================================================
 	// 이벤트
 	// ============================================================

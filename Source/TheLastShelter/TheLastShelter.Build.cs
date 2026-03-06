@@ -13,6 +13,7 @@ public class TheLastShelter : ModuleRules
 			System.IO.Path.Combine(ModuleDirectory, "Actor"),
 			System.IO.Path.Combine(ModuleDirectory, "ActorComponent"),
 			System.IO.Path.Combine(ModuleDirectory, "AI"),
+			System.IO.Path.Combine(ModuleDirectory, "AI", "Tasks"),
 			System.IO.Path.Combine(ModuleDirectory, "Manager"),
 			System.IO.Path.Combine(ModuleDirectory, "UI")
 		});

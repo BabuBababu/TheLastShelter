@@ -1,6 +1,7 @@
 // Copyright TheLastShelter. All Rights Reserved.
 
 #include "MAITaskComponent.h"
+#include "MBaseTask.h"
 
 UMAITaskComponent::UMAITaskComponent()
 {
@@ -16,27 +17,30 @@ void UMAITaskComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// 시간 제한이 있는 태스크 자동 완료 체크
-	if (CurrentTask.IsValid() && CurrentTask.TimeLimit > 0.f)
+	// 현재 태스크가 있으면 TickTask 구동
+	if (CurrentTask && CurrentTask->IsActive())
 	{
-		const float elapsed = GetWorld()->GetTimeSeconds() - CurrentTask.StartTime;
-		if (elapsed >= CurrentTask.TimeLimit)
-		{
-			CompleteCurrentTask();
-		}
+		CurrentTask->TickTask(DeltaTime);
 	}
 
-	// 현재 태스크 없으면 다음 태스크 시작
-	if (!CurrentTask.IsValid() && TaskQueue.Num() > 0)
+	// 현재 태스크가 끝났거나 없으면 다음 태스크 시작
+	if ((!CurrentTask || CurrentTask->IsFinished()) && TaskQueue.Num() > 0)
 	{
+		CurrentTask = nullptr;
 		StartNextTask();
 	}
 }
 
-void UMAITaskComponent::EnqueueTask(const FMAITask& Task)
+// ============================================================
+// 태스크 관리
+// ============================================================
+
+void UMAITaskComponent::EnqueueTask(UMBaseTask* Task)
 {
-	// Force/Interrupt 태스크는 InterruptWithTask 로 전환
-	if (Task.IsForceTask())
+	if (!Task) return;
+
+	// Force/Interrupt 태스크는 InterruptWithTask로 전환
+	if (Task->IsForceTask())
 	{
 		InterruptWithTask(Task);
 		return;
@@ -45,44 +49,111 @@ void UMAITaskComponent::EnqueueTask(const FMAITask& Task)
 	TaskQueue.Add(Task);
 
 	UE_LOG(LogTemp, Log, TEXT("[AITask] Enqueued: %s (Queue: %d)"),
-		*UEnum::GetValueAsString(Task.TaskType), TaskQueue.Num());
+		*UEnum::GetValueAsString(Task->TaskType), TaskQueue.Num());
 
 	// 현재 태스크가 없으면 즉시 시작
-	if (!CurrentTask.IsValid())
+	if (!CurrentTask || !CurrentTask->IsActive())
 	{
+		CurrentTask = nullptr;
 		StartNextTask();
 	}
 }
 
-void UMAITaskComponent::InterruptWithTask(const FMAITask& Task)
+void UMAITaskComponent::InterruptWithTask(UMBaseTask* Task)
 {
-	UE_LOG(LogTemp, Log, TEXT("[AITask] INTERRUPT: %s"), *UEnum::GetValueAsString(Task.TaskType));
+	if (!Task) return;
 
-	// 현재 태스크가 있으면 취소 후 큐 앞에 다시 넣기 (optional: 복구 가능)
-	if (CurrentTask.IsValid())
+	UE_LOG(LogTemp, Log, TEXT("[AITask] INTERRUPT: %s"), *UEnum::GetValueAsString(Task->TaskType));
+
+	// 현재 태스크 취소
+	if (CurrentTask && CurrentTask->IsActive())
 	{
-		CurrentTask.State = EMTaskState::Cancelled;
-		// 취소된 태스크는 버림 — 필요 시 큐 앞에 다시 넣을 수 있음
+		CurrentTask->OnTaskFinished.Unbind();
+		CurrentTask->CancelTask();
 	}
 
-	// Force 태스크를 현재 태스크로 즉시 설정
+	// 새 태스크를 현재 태스크로 설정
 	CurrentTask = Task;
-	CurrentTask.State = EMTaskState::InProgress;
-	CurrentTask.StartTime = GetWorld()->GetTimeSeconds();
+
+	// Initialize + Start
+	if (CachedController)
+	{
+		CurrentTask->Initialize(CachedController);
+	}
+	CurrentTask->OnTaskFinished.BindUObject(this, &UMAITaskComponent::OnCurrentTaskFinished);
+	CurrentTask->StartTask();
+
 	OnTaskStarted.Broadcast(CurrentTask);
 }
 
-void UMAITaskComponent::CompleteCurrentTask()
+void UMAITaskComponent::ClearAllTasks()
 {
-	if (!CurrentTask.IsValid()) return;
+	// 현재 태스크 취소
+	if (CurrentTask && CurrentTask->IsActive())
+	{
+		CurrentTask->OnTaskFinished.Unbind();
+		CurrentTask->CancelTask();
+	}
+	CurrentTask = nullptr;
 
-	CurrentTask.State = EMTaskState::Completed;
+	// 큐 비우기
+	TaskQueue.Empty();
+	OnTaskQueueEmpty.Broadcast();
 
-	UE_LOG(LogTemp, Log, TEXT("[AITask] Completed: %s"), *UEnum::GetValueAsString(CurrentTask.TaskType));
-	OnTaskCompleted.Broadcast(CurrentTask);
+	UE_LOG(LogTemp, Log, TEXT("[AITask] All tasks cleared."));
+}
 
-	// 현재 태스크 초기화
-	CurrentTask = FMAITask::MakeEmpty();
+// ============================================================
+// 내부
+// ============================================================
+
+void UMAITaskComponent::StartNextTask()
+{
+	if (TaskQueue.Num() == 0)
+	{
+		OnTaskQueueEmpty.Broadcast();
+		return;
+	}
+
+	// 우선순위 가장 높은 태스크를 꺼냄
+	int32 bestIndex = 0;
+	EMTaskPriority bestPriority = TaskQueue[0]->Priority;
+	for (int32 i = 1; i < TaskQueue.Num(); ++i)
+	{
+		if (TaskQueue[i]->Priority > bestPriority)
+		{
+			bestPriority = TaskQueue[i]->Priority;
+			bestIndex = i;
+		}
+	}
+
+	CurrentTask = TaskQueue[bestIndex];
+	TaskQueue.RemoveAt(bestIndex);
+
+	// Initialize + Start
+	if (CachedController)
+	{
+		CurrentTask->Initialize(CachedController);
+	}
+	CurrentTask->OnTaskFinished.BindUObject(this, &UMAITaskComponent::OnCurrentTaskFinished);
+	CurrentTask->StartTask();
+
+	UE_LOG(LogTemp, Log, TEXT("[AITask] Started: %s"), *UEnum::GetValueAsString(CurrentTask->TaskType));
+	OnTaskStarted.Broadcast(CurrentTask);
+}
+
+void UMAITaskComponent::OnCurrentTaskFinished(UMBaseTask* Task, bool bSuccess)
+{
+	UE_LOG(LogTemp, Log, TEXT("[AITask] %s: %s"),
+		bSuccess ? TEXT("Completed") : TEXT("Failed"),
+		*UEnum::GetValueAsString(Task->TaskType));
+
+	// 현재 태스크 정리
+	if (CurrentTask == Task)
+	{
+		CurrentTask->OnTaskFinished.Unbind();
+		CurrentTask = nullptr;
+	}
 
 	// 다음 태스크 시작
 	if (TaskQueue.Num() > 0)
@@ -93,72 +164,4 @@ void UMAITaskComponent::CompleteCurrentTask()
 	{
 		OnTaskQueueEmpty.Broadcast();
 	}
-}
-
-void UMAITaskComponent::CancelCurrentTask()
-{
-	if (!CurrentTask.IsValid()) return;
-
-	CurrentTask.State = EMTaskState::Cancelled;
-	UE_LOG(LogTemp, Log, TEXT("[AITask] Cancelled: %s"), *UEnum::GetValueAsString(CurrentTask.TaskType));
-
-	CurrentTask = FMAITask::MakeEmpty();
-
-	if (TaskQueue.Num() > 0)
-	{
-		StartNextTask();
-	}
-	else
-	{
-		OnTaskQueueEmpty.Broadcast();
-	}
-}
-
-void UMAITaskComponent::ClearAllTasks()
-{
-	if (CurrentTask.IsValid())
-	{
-		CurrentTask.State = EMTaskState::Cancelled;
-		CurrentTask = FMAITask::MakeEmpty();
-	}
-	TaskQueue.Empty();
-	OnTaskQueueEmpty.Broadcast();
-
-	UE_LOG(LogTemp, Log, TEXT("[AITask] All tasks cleared."));
-}
-
-void UMAITaskComponent::RequestTask(EMTaskType TaskType, EMTaskCategory Category, AActor* Target,
-	FVector Location, EMTaskPriority Priority)
-{
-	FMAITask task = FMAITask::Make(TaskType, Category, Priority);
-	task.TargetActor = Target;
-	task.TargetLocation = Location;
-
-	EnqueueTask(task);
-}
-
-void UMAITaskComponent::StartNextTask()
-{
-	if (TaskQueue.Num() == 0) return;
-
-	// 우선순위 가장 높은 태스크를 꺼냄
-	int32 bestIndex = 0;
-	EMTaskPriority bestPriority = TaskQueue[0].Priority;
-	for (int32 i = 1; i < TaskQueue.Num(); ++i)
-	{
-		if (TaskQueue[i].Priority > bestPriority)
-		{
-			bestPriority = TaskQueue[i].Priority;
-			bestIndex = i;
-		}
-	}
-
-	CurrentTask = TaskQueue[bestIndex];
-	TaskQueue.RemoveAt(bestIndex);
-
-	CurrentTask.State = EMTaskState::InProgress;
-	CurrentTask.StartTime = GetWorld()->GetTimeSeconds();
-
-	UE_LOG(LogTemp, Log, TEXT("[AITask] Started: %s"), *UEnum::GetValueAsString(CurrentTask.TaskType));
-	OnTaskStarted.Broadcast(CurrentTask);
 }

@@ -10,15 +10,16 @@
 class UAIPerceptionComponent;
 class UAISenseConfig_Sight;
 class UMAITaskComponent;
+class UMBaseTask;
 
 /**
  * MAIControllerBase
  * Eve/Ordo AI 컨트롤러 공통 베이스.
- * AIPerception + AITaskComponent 기반 태스크 구동 패턴.
+ * AIPerception + Command Pattern TaskComponent 기반.
  *
- * 하위 클래스는 ExecuteTask()를 오버라이드하여 태스크별 행동을 구현.
- * Tick에서 자동으로 태스크 상태 머신을 구동함:
- *   Idle → (큐에서 꺼냄) → InProgress → (ExecuteTask) → Completed → 다음 체크
+ * 하위 클래스는 CreateTaskForType()를 오버라이드하여 태스크 생성 팩토리를 구현.
+ * 태스크 실행은 UMBaseTask::TickTask()가 스스로 처리 (컨트롤러에서 직접 구동하지 않음).
+ * 컨트롤러의 Tick에서는 Idle 행동만 구동.
  */
 UCLASS()
 class THELASTSHELTER_API AMAIControllerBase : public AAIController
@@ -42,23 +43,23 @@ protected:
 	TObjectPtr<UMAITaskComponent> TaskComp;
 
 	/**
-	 * 매 Tick 호출. 현재 태스크를 실행하는 핵심 가상 함수.
-	 * 하위 클래스에서 오버라이드하여 태스크별 행동을 구현.
-	 * 태스크가 끝났으면 TaskComp->CompleteCurrentTask() 를 호출.
+	 * 태스크 팩토리 — EMTaskType에 맞는 UMBaseTask* 생성.
+	 * 하위 클래스에서 오버라이드하여 적절한 태스크 객체 생성 + 설정.
+	 * @return 생성된 태스크 (nullptr이면 지원하지 않는 태스크)
 	 */
-	virtual void ExecuteTask(float DeltaTime, const FMAITask& Task);
+	virtual UMBaseTask* CreateTaskForType(EMTaskType TaskType, AActor* Target, const FVector& Location);
 
 	/**
 	 * 현재 태스크가 없을 때(Idle) 매 Tick 호출.
-	 * 하위 클래스에서 기본 행동(배회, 순찰 등)을 구현.
+	 * 하위 클래스에서 기본 행동(배회, 순찰, 적 감지 시 전투 태스크 생성 등)을 구현.
 	 */
 	virtual void ExecuteIdleBehavior(float DeltaTime);
 
 	/**
-	 * 태스크 시작 시 1회 호출 (OnTaskStarted 콜백).
-	 * 상태 초기화 등에 사용.
+	 * 새 태스크 시작 시 호출 (OnTaskStarted 콜백).
+	 * 하위 클래스에서 컨트롤러 레벨 초기화.
 	 */
-	virtual void OnTaskBegin(const FMAITask& Task);
+	virtual void OnNewTaskStarted(UMBaseTask* Task);
 
 	// ============================================================
 	// Perception
@@ -98,23 +99,33 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	void SetLastAttacker(AActor* Attacker) { LastAttacker = Attacker; }
 
+	/**
+	 * 우선 타겟 결정 — 하위 클래스에서 오버라이드.
+	 * LastAttacker가 사거리 내이면 우선, 아니면 DetectedTarget.
+	 * 태스크 객체가 타겟을 찾을 때 이 함수를 사용.
+	 */
+	virtual AActor* ResolveAttackTarget() const;
+
 	// ============================================================
-	// 태스크 편의 API (Controller에서 바로 호출)
+	// 태스크 편의 API (외부 시스템에서 호출)
 	// ============================================================
 
+	/** 태스크 예약 — CreateTaskForType()으로 생성 후 큐에 추가 */
 	UFUNCTION(BlueprintCallable, Category = "AI|Task")
 	void RequestTask(EMTaskType TaskType, EMTaskCategory Category, AActor* Target = nullptr,
 		FVector Location = FVector::ZeroVector, EMTaskPriority Priority = EMTaskPriority::Normal);
 
+	/** Force 태스크 — Interrupt 우선순위로 즉시 교체 */
 	UFUNCTION(BlueprintCallable, Category = "AI|Task")
 	void ForceTask(EMTaskType TaskType, EMTaskCategory Category, AActor* Target = nullptr,
 		FVector Location = FVector::ZeroVector);
 
+	/** 모든 태스크 클리어 */
 	UFUNCTION(BlueprintCallable, Category = "AI|Task")
 	void ClearAllTasks();
 
 private:
 	/** OnTaskStarted 콜백 래퍼 */
 	UFUNCTION()
-	void HandleTaskStarted(const FMAITask& Task);
+	void HandleTaskStarted(UMBaseTask* Task);
 };

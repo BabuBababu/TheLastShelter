@@ -86,6 +86,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn|Pool")
 	int32 PoolMaxSize = 50;
 
+	/** 사망 후 디스폰까지 지연 시간(초). Down 애니메이션 감상 + 드롭 아이템 표시용. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn|Pool")
+	float DespawnDelay = 1.5f;
+
 	// ============================================================
 	// 조회
 	// ============================================================

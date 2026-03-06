@@ -239,17 +239,40 @@ void UMSpawnManager::SpawnWave()
 
 void UMSpawnManager::OnOrdoDeath()
 {
-	// 죽은 오르도를 활성 목록에서 제거하고 풀 반납
 	for (int32 i = ActiveOrdos.Num() - 1; i >= 0; --i)
 	{
 		AMOrdoCharacter* ordo = ActiveOrdos[i].Get();
-		if (!ordo || ordo->IsDead())
+		if (!ordo)
 		{
-			if (ordo)
-			{
-				ReturnToPool(ordo);
-			}
 			ActiveOrdos.RemoveAt(i);
+			continue;
+		}
+
+		if (ordo->IsDead())
+		{
+			// 충돌 즉시 해제 (다른 총알이 시체에 맞지 않도록)
+			ordo->SetActorEnableCollision(false);
+
+			// Down 플립북 완료 후 Hidden 상태가 되면 풀 반환.
+			// Tick에서 Hidden 상태 감지 대신, 타이머로 단번 확인 후 풀 반환.
+			TWeakObjectPtr<AMOrdoCharacter> weakOrdo = ordo;
+			UWorld* world = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
+			if (world)
+			{
+				FTimerHandle handle;
+				world->GetTimerManager().SetTimer(handle, [this, weakOrdo]()
+				{
+					if (AMOrdoCharacter* o = weakOrdo.Get())
+					{
+						ReturnToPool(o);
+					}
+				}, DespawnDelay, false);
+			}
+
+			ActiveOrdos.RemoveAt(i);
+
+			UE_LOG(LogTemp, Log, TEXT("[SpawnManager] Ordo '%s' 사망 → %.1f초 후 풀 회수"),
+				*ordo->GetName(), DespawnDelay);
 		}
 	}
 }

@@ -89,6 +89,19 @@ enum class EMPrimalType : uint8
 	Plant	UMETA(DisplayName = "식물")
 };
 
+/** 무기 병과 — Eve, Ordo, Player 공통 사용 */
+UENUM(BlueprintType)
+enum class EMWeaponClass : uint8
+{
+	HG	UMETA(DisplayName = "핸드건"),
+	AR	UMETA(DisplayName = "어썰트라이플"),
+	SR	UMETA(DisplayName = "스나이퍼라이플"),
+	SG	UMETA(DisplayName = "샷건"),
+	SMG	UMETA(DisplayName = "서브머신건"),
+	MG	UMETA(DisplayName = "머신건"),
+	RL	UMETA(DisplayName = "로켓런처")
+};
+
 // ============================================================
 // Animation State Enums
 // ============================================================
@@ -125,11 +138,12 @@ enum class EMEveAnimState : uint8
 	Idle				UMETA(DisplayName = "대기하기"),
 	GunIdle				UMETA(DisplayName = "총 대기하기"),
 
+	// ---- 전투 진입 / 전투중 / 전투 종료 ----
+	CombatEnter			UMETA(DisplayName = "전투 시작"),   // 전투 진입 시 1회 재생
+	CombatLoop			UMETA(DisplayName = "전투중"),       // 전투 사거리 내 반복
+	CombatExit			UMETA(DisplayName = "전투 종료"),   // CombatEnter 플립북 역재생
+
 	// ---- 전투 ----
-	GunShot_Down		UMETA(DisplayName = "총 아래 사격"),
-	GunShot_Up			UMETA(DisplayName = "총 위 사격"),
-	GunShot_Left		UMETA(DisplayName = "총 왼쪽 사격"),
-	GunShot_Right		UMETA(DisplayName = "총 오른쪽 사격"),
 	Hit					UMETA(DisplayName = "피격"),
 
 	// ---- 쓰러짐 ----
@@ -177,11 +191,12 @@ enum class EMOrdoAnimState : uint8
 	// ---- 대기 / 쓰러짐 ----
 	GunIdle				UMETA(DisplayName = "총 대기하기"),
 
+	// ---- 전투 진입 / 전투중 / 전투 종료 ----
+	CombatEnter			UMETA(DisplayName = "전투 시작"),
+	CombatLoop			UMETA(DisplayName = "전투중"),
+	CombatExit			UMETA(DisplayName = "전투 종료"),
+
 	// ---- 전투 ----
-	GunShot_Down		UMETA(DisplayName = "총 아래 사격"),
-	GunShot_Up			UMETA(DisplayName = "총 위 사격"),
-	GunShot_Left		UMETA(DisplayName = "총 왼쪽 사격"),
-	GunShot_Right		UMETA(DisplayName = "총 오른쪽 사격"),
 	Hit					UMETA(DisplayName = "피격"),
 
 	Down				UMETA(DisplayName = "쓰러짐"),
@@ -257,8 +272,9 @@ struct FMPhysicalStat
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Physical")
 	float WorkSpeed = 1.f;
 
+	/** 초당 발사 횟수. 기본 4발/초. AttackRate(간격) = 1 / AttackSpeed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Physical")
-	float AttackSpeed = 1.f;
+	float AttackSpeed = 4.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat|Physical")
 	float Recovery = 1.f;

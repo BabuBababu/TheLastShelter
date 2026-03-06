@@ -8,20 +8,24 @@
 
 class AMOrdoCharacter;
 class AMEveCharacter;
+class UMBaseTask;
 
 /**
  * MOrdoAIController
  * Ordo(적) 전용 AI 컨트롤러.
  *
+ * Command Pattern으로 리팩토링됨:
+ * - 모든 행동은 UMBaseTask 서브클래스가 자체 state machine으로 구현
+ * - 컨트롤러는 태스크 팩토리(CreateTaskForType)와 Idle 순찰만 관장
+ *
  * === 전투 태스크 ===
- *   Attack             – 플레이어/Eve 공격 (나를 공격한 대상 우선)
- *   ForceAttack        – 강제 공격 (사거리 무시 추격)
- *   ForceMove          – 지정 위치로 강제 이동
- *   HoldPosition       – 위치 고수
- *   Retreat            – 레벨 지정 스팟으로 퇴각 후 디스폰
- *   DestroyStorage     – 창고(Storage) 부수기
- *   Kidnap             – 기절한 Eve를 엎고 퇴각
- *   AttackDefenseTower – 데미지 무시, 타워만 집중 공격
+ *   Attack / ForceAttack   – UMAttackTask
+ *   HoldPosition           – UMHoldPositionTask
+ *   ForceMove              – UMMoveTask
+ *   Retreat                – UMRetreatTask
+ *   DestroyStorage         – UMAttackTargetTask
+ *   Kidnap                 – UMKidnapTask
+ *   AttackDefenseTower     – UMAttackTargetTask
  */
 UCLASS()
 class THELASTSHELTER_API AMOrdoAIController : public AMAIControllerBase
@@ -35,10 +39,11 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void OnPossess(APawn* InPawn) override;
 
-	// ---- 태스크 오버라이드 ----
-	virtual void ExecuteTask(float DeltaTime, const FMAITask& Task) override;
+	// ---- Command Pattern 인터페이스 ----
+	virtual UMBaseTask* CreateTaskForType(EMTaskType TaskType, AActor* Target, const FVector& Location) override;
 	virtual void ExecuteIdleBehavior(float DeltaTime) override;
-	virtual void OnTaskBegin(const FMAITask& Task) override;
+	virtual void OnNewTaskStarted(UMBaseTask* Task) override;
+	virtual AActor* ResolveAttackTarget() const override;
 
 	UPROPERTY()
 	TObjectPtr<AMOrdoCharacter> OwnerOrdo;
@@ -50,7 +55,7 @@ public:
 
 	/** 공격 사거리 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Ordo")
-	float AttackRange = 120.f;
+	float AttackRange = 600.f;
 
 	/** 순찰 범위 (스폰 지점 기준) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Ordo")
@@ -60,6 +65,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Ordo")
 	float AttackRate = 2.0f;
 
+	/** 전투 시작 애니메이션 지속 시간(초) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Ordo")
+	float CombatEnterDuration = 0.6f;
+
+	/** 전투 진입 오프셋 — AttackRange에서 이 값만큼 더 충분히 접근해야 CombatEnter 진입 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Ordo")
+	float CombatEngageOffset = 100.f;
+
 	/** 퇴각 도착 허용 거리 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Ordo")
 	float RetreatArrivalDist = 100.f;
@@ -68,27 +81,9 @@ private:
 	FVector SpawnLocation;
 	FVector PatrolTarget;
 	bool Patrolling = false;
-	float LastAttackTime = -999.f;
 
 	/** 퇴각 목표 위치 (레벨 디자이너가 지정 또는 스폰 역방향) */
 	FVector RetreatDestination;
 
-	/** 납치 중인 Eve */
-	UPROPERTY()
-	TWeakObjectPtr<AMEveCharacter> KidnapTarget;
-
 	void ChooseNewPatrolPoint();
-
-	// ---- 전투 태스크 실행 ----
-	void ExecuteAttack(float DeltaTime, const FMAITask& Task);
-	void ExecuteForceAttack(float DeltaTime, const FMAITask& Task);
-	void ExecuteHoldPosition(float DeltaTime);
-	void ExecuteForceMove(float DeltaTime, const FMAITask& Task);
-	void ExecuteRetreat(float DeltaTime, const FMAITask& Task);
-	void ExecuteDestroyStorage(float DeltaTime, const FMAITask& Task);
-	void ExecuteKidnap(float DeltaTime, const FMAITask& Task);
-	void ExecuteAttackDefenseTower(float DeltaTime, const FMAITask& Task);
-
-	/** 우선 타겟 결정 — LastAttacker 우선, 아니면 감지된 적 */
-	AActor* ResolveAttackTarget() const;
 };

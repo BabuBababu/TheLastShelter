@@ -6,7 +6,15 @@
 #include "MEveCharacter.h"
 #include "MAITaskComponent.h"
 #include "NavigationSystem.h"
-#include "Navigation/PathFollowingComponent.h"
+#include "Engine/Engine.h"
+
+// ---- Task includes ----
+#include "MAttackTask.h"
+#include "MHoldPositionTask.h"
+#include "MMoveTask.h"
+#include "MRetreatTask.h"
+#include "MAttackTargetTask.h"
+#include "MKidnapTask.h"
 
 AMOrdoAIController::AMOrdoAIController()
 {
@@ -30,42 +38,112 @@ void AMOrdoAIController::OnPossess(APawn* InPawn)
 }
 
 // ============================================================
-// 태스크 시작 콜백
+// 태스크 팩토리 — EMTaskType → UMBaseTask* 생성
 // ============================================================
 
-void AMOrdoAIController::OnTaskBegin(const FMAITask& Task)
+UMBaseTask* AMOrdoAIController::CreateTaskForType(EMTaskType TaskType, AActor* Target, const FVector& Location)
 {
-	Patrolling = false;
-	UE_LOG(LogTemp, Log, TEXT("[OrdoAI] Task Begin: %s"), *UEnum::GetValueAsString(Task.TaskType));
-}
-
-// ============================================================
-// 태스크 디스패치
-// ============================================================
-
-void AMOrdoAIController::ExecuteTask(float DeltaTime, const FMAITask& Task)
-{
-	if (!OwnerOrdo || OwnerOrdo->IsDead()) return;
-
-	switch (Task.TaskType)
+	switch (TaskType)
 	{
-	case EMTaskType::Attack:				ExecuteAttack(DeltaTime, Task); break;
-	case EMTaskType::ForceAttack:			ExecuteForceAttack(DeltaTime, Task); break;
-	case EMTaskType::HoldPosition:			ExecuteHoldPosition(DeltaTime); break;
-	case EMTaskType::ForceMove:				ExecuteForceMove(DeltaTime, Task); break;
-	case EMTaskType::Retreat:				ExecuteRetreat(DeltaTime, Task); break;
-	case EMTaskType::DestroyStorage:		ExecuteDestroyStorage(DeltaTime, Task); break;
-	case EMTaskType::Kidnap:				ExecuteKidnap(DeltaTime, Task); break;
-	case EMTaskType::AttackDefenseTower:	ExecuteAttackDefenseTower(DeltaTime, Task); break;
+	// ---- 전투: Attack / ForceAttack ----
+	case EMTaskType::Attack:
+	case EMTaskType::ForceAttack:
+	{
+		UMAttackTask* task = NewObject<UMAttackTask>(this);
+		task->TaskType = TaskType;
+		task->bForceMode = (TaskType == EMTaskType::ForceAttack);
+		task->AttackRange = AttackRange;
+		task->AttackRate = AttackRate;
+		task->CombatEnterDuration = CombatEnterDuration;
+		task->CombatEngageOffset = CombatEngageOffset;
+		task->TargetActor = Target;
+		return task;
+	}
+
+	// ---- 전투: HoldPosition ----
+	case EMTaskType::HoldPosition:
+	{
+		UMHoldPositionTask* task = NewObject<UMHoldPositionTask>(this);
+		task->AttackRange = AttackRange;
+		task->AttackRate = AttackRate;
+		task->TargetActor = Target;
+		return task;
+	}
+
+	// ---- 이동: ForceMove ----
+	case EMTaskType::ForceMove:
+	{
+		UMMoveTask* task = NewObject<UMMoveTask>(this);
+		task->TaskType = TaskType;
+		task->TargetActor = Target;
+		task->TargetLocation = Location;
+		return task;
+	}
+
+	// ---- 전투: Retreat ----
+	case EMTaskType::Retreat:
+	{
+		UMRetreatTask* task = NewObject<UMRetreatTask>(this);
+		task->TargetLocation = !Location.IsNearlyZero() ? Location : RetreatDestination;
+		task->ArrivalDistance = RetreatArrivalDist;
+		task->bDestroyOnArrival = true;
+		return task;
+	}
+
+	// ---- 전투: DestroyStorage ----
+	case EMTaskType::DestroyStorage:
+	{
+		UMAttackTargetTask* task = NewObject<UMAttackTargetTask>(this);
+		task->TaskType = TaskType;
+		task->AttackRange = AttackRange;
+		task->AttackRate = AttackRate;
+		task->TargetActor = Target;
+		return task;
+	}
+
+	// ---- 전투: Kidnap ----
+	case EMTaskType::Kidnap:
+	{
+		UMKidnapTask* task = NewObject<UMKidnapTask>(this);
+		task->TargetActor = Target;
+		task->RetreatDestination = RetreatDestination;
+		return task;
+	}
+
+	// ---- 전투: AttackDefenseTower ----
+	case EMTaskType::AttackDefenseTower:
+	{
+		UMAttackTargetTask* task = NewObject<UMAttackTargetTask>(this);
+		task->TaskType = TaskType;
+		task->AttackRange = AttackRange;
+		task->AttackRate = AttackRate;
+		task->bIgnoreDamage = true;
+		task->TargetActor = Target;
+		return task;
+	}
 
 	default:
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		break;
+		return Super::CreateTaskForType(TaskType, Target, Location);
 	}
 }
 
 // ============================================================
-// Idle 행동 (태스크 없을 때)
+// 새 태스크 시작 콜백
+// ============================================================
+
+void AMOrdoAIController::OnNewTaskStarted(UMBaseTask* Task)
+{
+	Super::OnNewTaskStarted(Task);
+	Patrolling = false;
+
+	if (Task)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[OrdoAI] Task Begin: %s"), *UEnum::GetValueAsString(Task->TaskType));
+	}
+}
+
+// ============================================================
+// Idle 행동 (태스크 없을 때) — 적 감지 + 순찰
 // ============================================================
 
 void AMOrdoAIController::ExecuteIdleBehavior(float DeltaTime)
@@ -86,6 +164,9 @@ void AMOrdoAIController::ExecuteIdleBehavior(float DeltaTime)
 
 			if (isTargetAlive)
 			{
+				const float dist = FVector::Dist(OwnerOrdo->GetActorLocation(), DetectedTarget->GetActorLocation());
+				if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Magenta,
+					FString::Printf(TEXT("[Ordo] 적 감지! dist=%.0f, AtkRange=%.0f → Attack 태스크 생성"), dist, AttackRange));
 				RequestTask(EMTaskType::Attack, EMTaskCategory::Combat, DetectedTarget);
 				return;
 			}
@@ -109,7 +190,7 @@ void AMOrdoAIController::ExecuteIdleBehavior(float DeltaTime)
 }
 
 // ============================================================
-// 전투 태스크 구현
+// 우선 타겟 결정
 // ============================================================
 
 AActor* AMOrdoAIController::ResolveAttackTarget() const
@@ -152,230 +233,6 @@ AActor* AMOrdoAIController::ResolveAttackTarget() const
 	}
 
 	return nullptr;
-}
-
-void AMOrdoAIController::ExecuteAttack(float DeltaTime, const FMAITask& Task)
-{
-	AActor* target = Task.TargetActor.IsValid() ? Task.TargetActor.Get() : ResolveAttackTarget();
-
-	if (!target)
-	{
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		return;
-	}
-
-	// 타겟 사망 체크
-	if (const AMEveCharacter* eve = Cast<AMEveCharacter>(target))
-	{
-		if (eve->IsDead()) { if (TaskComp) TaskComp->CompleteCurrentTask(); return; }
-	}
-
-	const float distToTarget = FVector::Dist(OwnerOrdo->GetActorLocation(), target->GetActorLocation());
-
-	if (distToTarget <= AttackRange)
-	{
-		StopMovement();
-		const float now = GetWorld()->GetTimeSeconds();
-		if (now - LastAttackTime >= AttackRate)
-		{
-			OwnerOrdo->PerformAttack(target);
-			LastAttackTime = now;
-		}
-	}
-	else
-	{
-		MoveToActor(target, AttackRange * 0.8f);
-	}
-}
-
-void AMOrdoAIController::ExecuteForceAttack(float DeltaTime, const FMAITask& Task)
-{
-	AActor* target = Task.TargetActor.IsValid() ? Task.TargetActor.Get() : ResolveAttackTarget();
-
-	if (!target)
-	{
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		return;
-	}
-
-	if (const AMEveCharacter* eve = Cast<AMEveCharacter>(target))
-	{
-		if (eve->IsDead()) { if (TaskComp) TaskComp->CompleteCurrentTask(); return; }
-	}
-
-	const float distToTarget = FVector::Dist(OwnerOrdo->GetActorLocation(), target->GetActorLocation());
-
-	if (distToTarget <= AttackRange)
-	{
-		StopMovement();
-		const float now = GetWorld()->GetTimeSeconds();
-		if (now - LastAttackTime >= AttackRate)
-		{
-			OwnerOrdo->PerformAttack(target);
-			LastAttackTime = now;
-		}
-	}
-	else
-	{
-		MoveToActor(target, AttackRange * 0.5f);
-	}
-}
-
-void AMOrdoAIController::ExecuteHoldPosition(float DeltaTime)
-{
-	StopMovement();
-
-	AActor* target = ResolveAttackTarget();
-	if (!target) return;
-
-	const float distToTarget = FVector::Dist(OwnerOrdo->GetActorLocation(), target->GetActorLocation());
-	if (distToTarget <= AttackRange)
-	{
-		const float now = GetWorld()->GetTimeSeconds();
-		if (now - LastAttackTime >= AttackRate)
-		{
-			OwnerOrdo->PerformAttack(target);
-			LastAttackTime = now;
-		}
-	}
-}
-
-void AMOrdoAIController::ExecuteForceMove(float DeltaTime, const FMAITask& Task)
-{
-	const FVector destination = Task.TargetLocation;
-	const float dist = FVector::Dist(OwnerOrdo->GetActorLocation(), destination);
-
-	if (dist < 50.f)
-	{
-		StopMovement();
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		return;
-	}
-
-	MoveToLocation(destination, 30.f);
-}
-
-void AMOrdoAIController::ExecuteRetreat(float DeltaTime, const FMAITask& Task)
-{
-	// 레벨 지정 스팟(TargetLocation)이 있으면 그곳으로, 아니면 RetreatDestination(스폰 위치)
-	const FVector destination = !Task.TargetLocation.IsNearlyZero()
-		? Task.TargetLocation
-		: RetreatDestination;
-
-	const float dist = FVector::Dist(OwnerOrdo->GetActorLocation(), destination);
-
-	if (dist < RetreatArrivalDist)
-	{
-		StopMovement();
-		UE_LOG(LogTemp, Log, TEXT("[OrdoAI] Retreat arrived — despawning."));
-		// 디스폰
-		if (OwnerOrdo)
-		{
-			OwnerOrdo->Destroy();
-		}
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		return;
-	}
-
-	MoveToLocation(destination, 50.f);
-}
-
-void AMOrdoAIController::ExecuteDestroyStorage(float DeltaTime, const FMAITask& Task)
-{
-	// TODO: Storage 액터 참조 시스템 연동
-	// 현재는 TargetActor로 전달받아 접근 후 공격
-	if (!Task.TargetActor.IsValid())
-	{
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		return;
-	}
-
-	const float dist = FVector::Dist(OwnerOrdo->GetActorLocation(), Task.TargetActor->GetActorLocation());
-	if (dist <= AttackRange)
-	{
-		StopMovement();
-		const float now = GetWorld()->GetTimeSeconds();
-		if (now - LastAttackTime >= AttackRate)
-		{
-			OwnerOrdo->PerformAttack(Task.TargetActor.Get());
-			LastAttackTime = now;
-		}
-	}
-	else
-	{
-		MoveToActor(Task.TargetActor.Get(), AttackRange * 0.8f);
-	}
-}
-
-void AMOrdoAIController::ExecuteKidnap(float DeltaTime, const FMAITask& Task)
-{
-	// 1단계: 기절한 Eve에게 접근
-	// 2단계: Eve를 엎고 퇴각 (Retreat)
-	AMEveCharacter* eve = Cast<AMEveCharacter>(Task.TargetActor.Get());
-	if (!eve || !eve->IsDead()) // IsDead = 기절/무력화 상태로 간주
-	{
-		// 타겟이 없거나 아직 기절하지 않음
-		if (!eve)
-		{
-			if (TaskComp) TaskComp->CompleteCurrentTask();
-			return;
-		}
-		// 기절하지 않은 Eve → 먼저 공격
-		ExecuteAttack(DeltaTime, Task);
-		return;
-	}
-
-	const float dist = FVector::Dist(OwnerOrdo->GetActorLocation(), eve->GetActorLocation());
-
-	if (dist < 80.f)
-	{
-		// Eve를 "납치" → 퇴각으로 전환
-		KidnapTarget = eve;
-		UE_LOG(LogTemp, Log, TEXT("[OrdoAI] Kidnapping Eve: %s"), *eve->GetName());
-
-		// Eve를 Ordo에 부착 (간단 구현)
-		eve->AttachToActor(OwnerOrdo, FAttachmentTransformRules::KeepRelativeTransform);
-
-		// 퇴각 태스크로 전환
-		if (TaskComp)
-		{
-			TaskComp->CompleteCurrentTask();
-			FMAITask retreatTask = FMAITask::MakeWithLocation(
-				EMTaskType::Retreat, EMTaskCategory::Combat, RetreatDestination, EMTaskPriority::High);
-			TaskComp->EnqueueTask(retreatTask);
-		}
-		return;
-	}
-
-	MoveToActor(eve, 50.f);
-}
-
-void AMOrdoAIController::ExecuteAttackDefenseTower(float DeltaTime, const FMAITask& Task)
-{
-	// 방어 타워만 집중 공격 — 다른 대상의 공격 무시
-	if (!Task.TargetActor.IsValid())
-	{
-		if (TaskComp) TaskComp->CompleteCurrentTask();
-		return;
-	}
-
-	const float dist = FVector::Dist(OwnerOrdo->GetActorLocation(), Task.TargetActor->GetActorLocation());
-
-	if (dist <= AttackRange)
-	{
-		StopMovement();
-		const float now = GetWorld()->GetTimeSeconds();
-		if (now - LastAttackTime >= AttackRate)
-		{
-			OwnerOrdo->PerformAttack(Task.TargetActor.Get());
-			LastAttackTime = now;
-		}
-	}
-	else
-	{
-		// 데미지 무시하고 타워로 직행
-		MoveToActor(Task.TargetActor.Get(), AttackRange * 0.5f);
-	}
 }
 
 // ============================================================

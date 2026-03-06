@@ -2,6 +2,7 @@
 
 #include "MPlayerCharacter.h"
 #include "MStatComponent.h"
+#include "Manager/MProjectileManager.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputComponent.h"
@@ -38,6 +39,19 @@ AMPlayerCharacter::AMPlayerCharacter()
 void AMPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// 총알 BP 클래스를 MProjectileManager에 자동 등록
+	if (BulletClass)
+	{
+		if (UGameInstance* GI = GetGameInstance())
+		{
+			if (UMProjectileManager* ProjMgr = GI->GetSubsystem<UMProjectileManager>())
+			{
+				// BulletClass 풀 사전 워밍
+				ProjMgr->EnsurePool(GetWorld(), BulletClass);
+			}
+		}
+	}
 
 	// EnhancedInput 매핑 컨텍스트 등록
 	if (const APlayerController* PC = Cast<APlayerController>(Controller))

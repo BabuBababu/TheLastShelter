@@ -6,6 +6,7 @@
 #include "PaperZDCharacter.h"
 #include "InputActionValue.h"
 #include "MDataTypes.h"
+#include "Actor/MBulletBase.h"
 #include "MPlayerCharacter.generated.h"
 
 class USpringArmComponent;
@@ -97,8 +98,21 @@ public:
 	float InteractionRange = 200.f;
 
 	// ---- State ----
+	/** 전투 애니메이션 스프라이트 스케일 (1.0 = 원본, 0.5 = 절반) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	float CombatSpriteScale = 1.0f;
+
 	UPROPERTY(BlueprintReadOnly, Category = "State")
 	bool IsAttacking = false;
+
+	/** 무기 병과 — 발사하는 탄환 종류 결정 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State")
+	EMWeaponClass WeaponClass = EMWeaponClass::HG;
+
+	/** 이 캐릭터가 실제로 스폰하는 총알 BP 클래스.
+	 *  BP_Player의 Details에서 BP_Bullet을 지정하면 코드에서 자동 등록됩니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "State")
+	TSubclassOf<AMBulletBase> BulletClass;
 
 	UPROPERTY(BlueprintReadOnly, Category = "State")
 	FVector2D MoveInput;

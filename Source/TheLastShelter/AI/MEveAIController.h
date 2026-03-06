@@ -7,26 +7,30 @@
 #include "MEveAIController.generated.h"
 
 class AMEveCharacter;
+class UMBaseTask;
 
 /**
  * MEveAIController
  * Eve(미소녀) 전용 AI 컨트롤러. 플레이어 편.
  *
+ * Command Pattern으로 리팩토링됨:
+ * - 모든 행동은 UMBaseTask 서브클래스가 자체 state machine으로 구현
+ * - 컨트롤러는 태스크 팩토리(CreateTaskForType)와 Idle 행동만 담당
+ *
  * === 전투 태스크 ===
- *   Attack          – 감지된 적 공격 (나를 공격한 대상 우선)
- *   ForceAttack     – 사거리 밖이면 이동 후 강제 공격
- *   HoldPosition    – 현재 위치 고수 (이동 금지)
- *   ForceMove       – 지정 위치로 강제 이동
- *   RetreatToShelter– 숙소로 퇴각
- *   UseSkill        – 스킬 슬롯(0~2) 사용
+ *   Attack / ForceAttack – UMAttackTask
+ *   HoldPosition         – UMHoldPositionTask
+ *   ForceMove            – UMMoveTask
+ *   RetreatToShelter     – UMRetreatTask
+ *   UseSkill             – TODO
  *
  * === 생활 태스크 ===
- *   Idle            – 대기 (멘탈 성향 기반 랜덤 행동)
- *   Move / ForceMove– 이동 / 강제 이동
- *   Carry / ForceCarry – 운반
- *   Rest / ForceRest   – 휴식
- *   Sex / ForceSex     – 섹스
- *   Masturbation / ForceMasturbation – 자위
+ *   Idle                 – UMIdleTask
+ *   Move                 – UMMoveTask
+ *   Carry / ForceCarry   – UMCarryTask
+ *   Rest / ForceRest     – UMTimerActionTask
+ *   Sex / ForceSex       – UMTimerActionTask
+ *   Masturbation / ForceMasturbation – UMTimerActionTask
  */
 UCLASS()
 class THELASTSHELTER_API AMEveAIController : public AMAIControllerBase
@@ -40,10 +44,11 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void OnPossess(APawn* InPawn) override;
 
-	// ---- 태스크 오버라이드 ----
-	virtual void ExecuteTask(float DeltaTime, const FMAITask& Task) override;
+	// ---- Command Pattern 인터페이스 ----
+	virtual UMBaseTask* CreateTaskForType(EMTaskType TaskType, AActor* Target, const FVector& Location) override;
 	virtual void ExecuteIdleBehavior(float DeltaTime) override;
-	virtual void OnTaskBegin(const FMAITask& Task) override;
+	virtual void OnNewTaskStarted(UMBaseTask* Task) override;
+	virtual AActor* ResolveAttackTarget() const override;
 
 	/** 소유 Eve 캐싱 */
 	UPROPERTY()
@@ -60,11 +65,14 @@ public:
 
 	/** 전투 공격 범위 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Eve")
-	float AttackRange = 150.f;
+	float AttackRange = 800.f;
 
-	/** 공격 간격 (초) */
+	/**
+	 * 공격 간격 오버라이드 (초). 0이면 Eve의 AttackSpeed 스탯으로 자동 계산.
+	 * 디버깅/밸런싱 용 수동 고정값.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Eve")
-	float AttackRate = 1.5f;
+	float AttackRateOverride = 0.f;
 
 	/** 배회 반경 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Eve")
@@ -86,35 +94,25 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Eve")
 	float MasturbationDuration = 6.0f;
 
-private:
-	float LastAttackTime = -999.f;
+	/** 전투 시작 애니메이션 지속 시간(초) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Eve")
+	float CombatEnterDuration = 0.6f;
 
-	// ---- 배회 ----
+	/** 전투 진입 오프셋 — AttackRange에서 이 값만큼 더 첑분히 접근해야 CombatEnter 진입 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Eve")
+	float CombatEngageOffset = 100.f;
+
+private:
+	/**
+	 * Eve의 AttackSpeed 스탯 + 히든스탯 보너스로 공격 간격(초)을 계산.
+	 * AttackRateOverride > 0이면 그 값을 즉시 반환.
+	 */
+	float ComputeAttackRate() const;
+
+	// ---- Idle 배회 상태 ----
 	FVector WanderTarget = FVector::ZeroVector;
 	bool IsWandering = false;
 	float WanderIdleEndTime = 0.f;
 	bool IsWanderIdle = false;
 	void ChooseNewWanderPoint();
-
-	// ---- 태스크별 내부 타이머 ----
-	float TaskActionStartTime = 0.f;
-
-	// ---- 전투 태스크 실행 ----
-	void ExecuteAttack(float DeltaTime, const FMAITask& Task);
-	void ExecuteForceAttack(float DeltaTime, const FMAITask& Task);
-	void ExecuteHoldPosition(float DeltaTime);
-	void ExecuteForceMove(float DeltaTime, const FMAITask& Task);
-	void ExecuteRetreatToShelter(float DeltaTime);
-	void ExecuteUseSkill(float DeltaTime, const FMAITask& Task);
-
-	// ---- 생활 태스크 실행 ----
-	void ExecuteIdle(float DeltaTime);
-	void ExecuteMove(float DeltaTime, const FMAITask& Task);
-	void ExecuteCarry(float DeltaTime, const FMAITask& Task);
-	void ExecuteRest(float DeltaTime);
-	void ExecuteSex(float DeltaTime, const FMAITask& Task);
-	void ExecuteMasturbation(float DeltaTime);
-
-	/** 우선 타겟 결정 — LastAttacker가 사거리 내이면 우선, 아니면 DetectedTarget */
-	AActor* ResolveAttackTarget() const;
 };

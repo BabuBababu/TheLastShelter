@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PaperZDCharacter.h"
 #include "MDataTypes.h"
+#include "Actor/MBulletBase.h"
 #include "MOrdoCharacter.generated.h"
 
 class UMDataManager;
@@ -67,6 +68,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Ordo|Animation")
 	void SetAnimState(EMOrdoAnimState NewState);
 
+	/** 전투 애니메이션(CombatEnter/CombatLoop/CombatExit) 스프라이트 스케일 배수 (1.0 = 원본, 0.5 = 절반) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Animation")
+	float CombatSpriteScale = 1.0f;
+
+	/** 스프라이트 기본 스케일 (BeginPlay에서 자동 저장, 전투 스케일 복원에 사용) */
+	FVector DefaultSpriteScale = FVector::OneVector;
+
+	/** CombatEnter 플립북을 역재생하여 CombatExit 상태로 전환 */
+	UFUNCTION(BlueprintCallable, Category = "Ordo|Animation")
+	void PlayCombatExitAnim();
+
+	/** 타겟 방향으로 스프라이트 좌우 반전 (X축 기준) */
+	UFUNCTION(BlueprintCallable, Category = "Ordo|Animation")
+	void FaceTarget(const AActor* Target);
+
 	/** 이동 속도 기반 자동 상태 전환 (Tick에서 매 프레임 호출) */
 	UFUNCTION(BlueprintCallable, Category = "Ordo|Animation")
 	void UpdateAnimStateFromMovement();
@@ -117,6 +133,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
 	TArray<int32> SkillIDs;
 
+	/** 무기 병과 — 발사하는 탄환 종류 결정 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
+	EMWeaponClass WeaponClass = EMWeaponClass::HG;
+
+	/** 이 캐릭터가 실제로 스폰하는 총알 BP 클래스.
+	 *  BP_Ordo의 Details에서 BP_Bullet을 지정하면 코드에서 자동 등록됩니다. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ordo|Data")
+	TSubclassOf<AMBulletBase> BulletClass;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ordo|Data")
 	int32 DropTableID = 0;
 
@@ -136,4 +161,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Ordo|Drop")
 	void SpawnDropItems();
+
+private:
+	/** Down 플립북 재생 완료 콜백 → Hidden */
+	UFUNCTION()
+	void OnDownAnimFinished();
 };

@@ -2,6 +2,7 @@
 
 #include "MAIControllerBase.h"
 #include "MAITaskComponent.h"
+#include "MBaseTask.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 
@@ -52,9 +53,10 @@ void AMAIControllerBase::OnPossess(APawn* InPawn)
 		UE_LOG(LogTemp, Log, TEXT("[AIBase] Created AITaskComponent on %s"), *InPawn->GetName());
 	}
 
-	// 태스크 시작 콜백 바인딩
+	// 컨트롤러 캐싱 + 콜백 바인딩
 	if (TaskComp)
 	{
+		TaskComp->SetOwnerController(this);
 		TaskComp->OnTaskStarted.AddDynamic(this, &AMAIControllerBase::HandleTaskStarted);
 	}
 }
@@ -65,12 +67,9 @@ void AMAIControllerBase::Tick(float DeltaTime)
 
 	if (!GetPawn()) return;
 
-	// 태스크 구동
-	if (TaskComp && TaskComp->HasCurrentTask())
-	{
-		ExecuteTask(DeltaTime, TaskComp->GetCurrentTask());
-	}
-	else
+	// 태스크 컴포넌트가 CurrentTask를 구동.
+	// 컨트롤러는 Idle 행동만 처리.
+	if (!TaskComp || TaskComp->IsIdle())
 	{
 		ExecuteIdleBehavior(DeltaTime);
 	}
@@ -78,9 +77,10 @@ void AMAIControllerBase::Tick(float DeltaTime)
 
 // ---- 가상 함수 기본 구현 ----
 
-void AMAIControllerBase::ExecuteTask(float DeltaTime, const FMAITask& Task)
+UMBaseTask* AMAIControllerBase::CreateTaskForType(EMTaskType TaskType, AActor* Target, const FVector& Location)
 {
-	// 기본: 아무것도 안함. 하위 클래스에서 오버라이드.
+	// 기본: nullptr. 하위 클래스에서 오버라이드.
+	return nullptr;
 }
 
 void AMAIControllerBase::ExecuteIdleBehavior(float DeltaTime)
@@ -88,9 +88,16 @@ void AMAIControllerBase::ExecuteIdleBehavior(float DeltaTime)
 	// 기본: 정지
 }
 
-void AMAIControllerBase::OnTaskBegin(const FMAITask& Task)
+void AMAIControllerBase::OnNewTaskStarted(UMBaseTask* Task)
 {
-	// 하위 클래스에서 초기화용
+	// 기본: 이동 정지 (하위 클래스에서 확장)
+	StopMovement();
+}
+
+AActor* AMAIControllerBase::ResolveAttackTarget() const
+{
+	// 기본: DetectedTarget 반환. 하위 클래스에서 오버라이드하여 LastAttacker 우선 로직 추가.
+	return DetectedTarget;
 }
 
 // ---- Perception ----
@@ -137,15 +144,33 @@ void AMAIControllerBase::RequestTask(EMTaskType TaskType, EMTaskCategory Categor
 	AActor* Target, FVector Location, EMTaskPriority Priority)
 {
 	if (!TaskComp) return;
-	TaskComp->RequestTask(TaskType, Category, Target, Location, Priority);
+
+	UMBaseTask* task = CreateTaskForType(TaskType, Target, Location);
+	if (!task)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[AIBase] CreateTaskForType returned null for %s"),
+			*UEnum::GetValueAsString(TaskType));
+		return;
+	}
+
+	task->Category = Category;
+	task->Priority = Priority;
+	if (task->IsForceTask()) task->Priority = EMTaskPriority::Interrupt;
+
+	TaskComp->EnqueueTask(task);
 }
 
 void AMAIControllerBase::ForceTask(EMTaskType TaskType, EMTaskCategory Category,
 	AActor* Target, FVector Location)
 {
 	if (!TaskComp) return;
-	FMAITask task = FMAITask::MakeWithTarget(TaskType, Category, Target, EMTaskPriority::Interrupt);
-	task.TargetLocation = Location;
+
+	UMBaseTask* task = CreateTaskForType(TaskType, Target, Location);
+	if (!task) return;
+
+	task->Category = Category;
+	task->Priority = EMTaskPriority::Interrupt;
+
 	TaskComp->InterruptWithTask(task);
 }
 
@@ -156,7 +181,7 @@ void AMAIControllerBase::ClearAllTasks()
 	StopMovement();
 }
 
-void AMAIControllerBase::HandleTaskStarted(const FMAITask& Task)
+void AMAIControllerBase::HandleTaskStarted(UMBaseTask* Task)
 {
-	OnTaskBegin(Task);
+	OnNewTaskStarted(Task);
 }
